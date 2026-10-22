@@ -30,36 +30,7 @@ pub struct Config {
     pub yield_source: Option<Address>,
 }
 
-/// What happens when the owner withdraws before the target or deadline (P4).
-#[contracttype]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WithdrawalRule {
-    /// A penalty in basis points, at most 1,000, paid to the integrator.
-    Penalty(u32),
-    /// No withdrawal until the target is reached or the deadline passes.
-    Lock,
-}
-
-/// An open savings goal.
-#[contracttype]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Goal {
-    pub id: u64,
-    pub owner: Address,
-    pub integrator: Address,
-    pub integrator_fee_bps: u32,
-    pub loktin_fee_bps: u32,
-    pub target: i128,
-    pub deadline: u64,
-    pub cadence: u64,
-    pub deposit_size: i128,
-    pub rule: WithdrawalRule,
-    pub start: u64,
-    pub principal: i128,
-    pub shares: i128,
-    pub last_collected_period: u64,
-    pub missed_count: u64,
-}
+pub use loktin_common::target_savings::{Goal, WithdrawalRule};
 
 /// A goal as stored, versioned so an upgrade can read every earlier form (S3).
 #[contracttype]

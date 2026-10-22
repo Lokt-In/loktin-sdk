@@ -1,6 +1,8 @@
 //! Events (S6). Names and fields are documented in `docs/events.md`.
 
-use soroban_sdk::{contractevent, contracttype, Address, BytesN};
+use soroban_sdk::{contractevent, contracttype, Address};
+
+pub use loktin_common::events::{FeeRecipientSet, LoktinFeeSet, Upgraded};
 
 use crate::storage::WithdrawalRule;
 
@@ -74,23 +76,4 @@ pub struct GoalClosed {
     pub goal_id: u64,
     #[topic]
     pub owner: Address,
-}
-
-#[contractevent]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LoktinFeeSet {
-    pub loktin_fee_bps: u32,
-}
-
-#[contractevent]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FeeRecipientSet {
-    pub fee_recipient: Address,
-}
-
-#[contractevent]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Upgraded {
-    pub new_wasm_hash: BytesN<32>,
-    pub operator: Address,
 }
