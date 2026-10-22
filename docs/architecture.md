@@ -116,7 +116,9 @@ loktin-sdk/
 | Area | Rule |
 |---|---|
 | Rust | Pinned in `rust-toolchain.toml` to 1.99.1 with the `wasm32v1-none` target. The soroban-sdk version is chosen in section 6. `Cargo.lock` is committed and every cargo command in CI uses `--locked`. Cargo has no release-age setting, so every crate is pinned exactly (`=x.y.z`), must be at least 7 days old, and the publish dates of all locked crates are checked at every review. |
-| Stellar CLI | Pinned to 28.1.0 for builds and deploys. |
+| Stellar CLI | Pinned to 28.1.0 for builds and deploys. Contracts are built only with `stellar contract build`: soroban-sdk 28's build script refuses a plain cargo wasm build. CI downloads the CLI from its GitHub release and verifies the release asset's sha256 digest. Never set `SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2` by hand. |
+| Test snapshots | Committed, as T1 requires. `**/test_snapshots/` is excluded from Prettier so the files stay exactly as the SDK writes them. |
+| Age exemptions | Recorded in `docs/decisions/`. The only one: stellar-access, stellar-contract-utils and stellar-macros at exactly 0.8.0 (published 2026-10-20), because C6 requires them. They are an audited release published by a crate owner. |
 | Node | Development and releases use Node 24, because its bundled npm supports `min-release-age` (added in npm 11.10.0; Node 22 bundles npm 10.9). `.nvmrc` holds 24. CI runs the test suite on Node 22, 24 and 26. Published `engines.node` is `>=22.12.0`. |
 | Package manager | npm workspaces. `package-lock.json` is committed and CI installs with `npm ci`. |
 | `.npmrc` | `ignore-scripts=true`, `save-exact=true`, `min-release-age=7`. A package that needs an urgent fix may be listed in `min-release-age-exclude`, and that exemption is a recorded decision. A dependency that cannot work without an install script is a decision for the owner, never a silent change. |
@@ -153,7 +155,7 @@ Requirements:
 - **L9 The host's payment flow is respected.** How a skim relates to the host's own payment is an explicit design choice. (Section 4.)
 - **L10 Storage renewal plan.** Every kind of stored data (instance, persistent, temporary) has a written TTL renewal plan. Stellar docs: instance storage shares the contract instance's TTL; archived persistent and instance entries can be restored automatically since protocol 23 when simulation adds them to the restore list, with normal rent and fees. (Section 6.)
 - **L11 Bounded storage.** No per-user list grows without limit. User-supplied strings have length limits. Discovery uses events or paging. (Section 6.)
-- **L12 No panics for expected failures.** Every expected failure returns a stable, documented error code. No `unwrap()` on stored configuration. No unused error codes.
+- **L12 No panics for expected failures.** Every expected failure returns a stable, documented error code. No `unwrap()` on stored configuration. No unused error codes, except that every contract reserves the full shared range 1 to 99 (S7), even codes it never returns.
 - **L13 Truthful events.** An event is emitted only for something that happened. Events are a documented public interface.
 - **L14 Upgrade and pause.** Contracts have an upgrade path and a pause control built on the audited OpenZeppelin library, with defined limits on who may use them. (Section 6.)
 - **L15 Keeper safety.**
@@ -195,7 +197,7 @@ Agreed 2026-10-22. The contracts enforce every rule in this section. The SDK onl
 ### 4.3 Target Savings
 
 - **P1 Fixed rules.** Target amount, deadline, cadence, deposit size and the early-withdrawal rule are fixed when a goal is created. No one can change them afterwards. The cadence must be at least the instance's minimum cadence (section 6, C11).
-- **P2 Deposits stop at the goal.** A scheduled deposit takes the deposit size, or the amount still missing to reach the target if smaller. Scheduled deposits stop once the target is reached or the deadline has passed.
+- **P2 Deposits stop at the goal.** A scheduled deposit takes the deposit size, or the amount still missing to reach the target if smaller. Scheduled deposits stop once the target is reached or the deadline has passed. The deadline second itself is inside the goal: a collection at exactly the deadline is allowed, and any collection after it is refused, even for a period that fell due before it.
 - **P3 Missed periods.** Amended 2026-10-22 with section 6 (C3). Periods are counted from the goal's start time; period `k` (k = 1, 2, ...) is due at `start + k * cadence` and lasts until `start + (k + 1) * cadence`. Nothing is due at creation.
   - A collection attempt collects the period that is current at that moment, so a keeper that is late but still inside the period collects it.
   - An attempt that fails because the balance or allowance is short does not use up the period. It can be retried by anyone while the period lasts.
@@ -205,9 +207,13 @@ Agreed 2026-10-22. The contracts enforce every rule in this section. The SDK onl
   - **(a) penalty:** a penalty of 0 to 10% of the principal, paid to the integrator's penalty address;
   - **(b) lock:** no withdrawal until the target is reached or the deadline passes.
   The 10% maximum is a product judgment, not a sourced figure.
-- **P5 No penalty once earned.** Once the target is reached or the deadline has passed, withdrawal carries no penalty.
-- **P6 Full withdrawal only.** A withdrawal pays out the whole balance and closes the goal. With L5, a goal is never closed on a partial payment.
-- **P7 Manual deposits.** Allowed at any time while the goal is open, up to the target amount and not beyond.
+- **P5 No penalty once earned.** Once the target is reached, or from the deadline second onwards, withdrawal carries no penalty.
+- **P6 Full withdrawal only.**
+  - A withdrawal pays out the whole balance and closes the goal. With L5, a goal is never closed on a partial payment.
+  - Under a lock rule, withdrawing before the target or deadline returns a Locked error when principal is above 0.
+  - A goal with nothing deposited (principal 0) can be closed at any time, under any rule. This frees one of the user's open-goal slots.
+  - Zero-amount transfers are skipped.
+- **P7 Manual deposits.** Allowed at any time while the goal is open, up to and including its deadline second, up to the target amount and not beyond. A deposit above what the goal still needs is rejected, never trimmed.
 - **P8 No names on chain.** Goal labels live in the integrator's own app. The contract stores no names.
 - **P9 Allowance horizon.** Scheduled deposits draw on a token allowance.
   - The SDK computes the amount and expiry needed, and reports when the app must ask the user to approve again (at most about 180 days ahead, per 4.1).
@@ -223,13 +229,15 @@ Agreed 2026-10-22. The contracts enforce every rule in this section. The SDK onl
   - a percentage of the spend (1% to 50%);
   - a round-up of the spend to a unit the integrator sets;
   - both, added together.
+  
+  The round-up part is `(unit - spend % unit) % unit`, so a spend that is already a whole number of units adds nothing.
 - **P13 Monthly cap.** An optional cap on the total saved per calendar month (UTC). Once it is reached, skims shrink to fit the cap. The payment itself is never blocked by the cap.
-- **P14 A skim never blocks a payment.** If the wallet cannot cover the payment plus the skim, the skim shrinks to what remains, down to zero, and the shortfall is recorded.
+- **P14 A skim never blocks a payment.** If the wallet cannot cover the payment plus the skim, the skim shrinks to what remains, down to zero, and the shortfall is recorded. A skim of zero moves nothing but still emits `saved` with the shortfall, so the app can show it.
 - **P15 Destination.** Skims go to either the user's Spend & Save balance or one of the same user's open Target Savings goals. A skim sent to a goal follows that goal's rules. This is the first feature to cut if time runs short.
 - **P16 Once-a-month access.**
   - The user chooses a withdrawal day of the month (1 to 28) at enrolment, and may choose the current day.
   - Their withdrawal window is that whole UTC day, every month.
-  - A change of withdrawal day only takes effect from the following month.
+  - A change of withdrawal day only takes effect from the following month. Until then the current month keeps the old day.
   - Per G4, the window can open up to 60 seconds early in real time. This is documented.
   - The SDK shows windows in the user's local time.
 
@@ -283,13 +291,13 @@ Agreed 2026-10-22.
   - **Pauser:** pause and unpause.
   - **Upgrader:** replace the contract code.
 
-  No role can move, redirect or freeze user funds. On testnet each role is held by a separate key the owner controls. To mainnet standard, the admin and upgrader roles are held by multisig accounts. Stellar applies a classic account's multisig at the medium threshold when a contract calls `require_auth`.
+  No role can move, redirect or freeze user funds. Role checks call OpenZeppelin's `ensure_role` and then `require_auth` directly, with the role names from `contracts/common`, so each name is defined in one place. (The `only_role` macro accepts only a string literal.) On testnet each role is held by a separate key the owner controls. To mainnet standard, the admin and upgrader roles are held by multisig accounts. Stellar applies a classic account's multisig at the medium threshold when a contract calls `require_auth`.
 - **C3 Open keeper.**
   - Anyone may call the function that collects a due scheduled deposit. It can only move the due amount from the goal owner's wallet into that owner's goal.
   - There is no keeper role and no keeper allowlist. Integrators run keepers without any permission from Loktin.
   - Together with amended P3, this means an early or hostile call cannot cause a missed period.
 - **C4 Pause never traps funds.**
-  - Pausing blocks creating goals, enrolling, deposits, scheduled collections, skims and pay-and-save.
+  - Pausing blocks creating goals, enrolling, deposits, scheduled collections, skims and pay-and-save. Settings updates move no money and are not blocked.
   - It never blocks withdrawals or reads. Withdrawals still follow each goal's or enrolment's rules.
   - Pausing is applied per function with the OpenZeppelin pausable module.
 - **C5 Upgrades.**
@@ -311,7 +319,7 @@ Agreed 2026-10-22.
   - In this sprint the constructor rejects any yield source. Enabling one later is an upgrade with its own design step and tests (including protection against known attacks on share-based vaults), not a redesign.
 - **C8 One token per instance.** Fixed at construction. Loktin's instances use Circle's testnet USDC.
 - **C9 Rounding favours the user.** Every fee and penalty calculation rounds any fraction down.
-- **C10 No integrator registry.** The integrator's address and fee rate are supplied when a goal or enrolment is created, signed by the user as part of that call, and checked against the caps by the contract.
+- **C10 No integrator registry.** The integrator's address and fee rate are supplied when a goal or enrolment is created, signed by the user as part of that call, and checked against the caps by the contract. The contract refuses its own address as an integrator or as the Loktin fee recipient, because funds paid to itself would be held with no record and never withdrawable.
 - **C11 Minimum cadence.**
   - Each Target Savings instance takes a minimum cadence at construction, fixed afterwards.
   - Loktin's testnet instance uses 86,400 seconds (1 day). Throwaway instances on CI's local network use 60 seconds (section 9, T8).
@@ -321,9 +329,13 @@ Agreed 2026-10-22.
 Agreed 2026-10-22.
 
 - **S1 Storage and TTL.**
-  - Instance storage holds configuration only: token, yield source (none), Loktin fee rate for new goals, fee recipient, next id, schema version, and the OpenZeppelin role and pause state.
+  - Instance storage holds configuration only: token, yield source (none), Loktin fee rate for new goals, fee recipient, next id, schema version, and OpenZeppelin's admin address and pause flag.
+  - OpenZeppelin's own storage is used as the library designs it and is not changed (v0.8.0 source):
+    - role membership, counts and role admins are persistent entries that renew themselves to 90 days when read;
+    - a pending admin transfer is kept in temporary storage.
+    A role entry left unread for 90 days is restored automatically by the next call that simulates it.
   - Persistent storage holds one entry per open goal, one entry per user listing that user's open goal ids (at most 20), and one entry per Spend & Save enrolment.
-  - No temporary storage.
+  - None of our own data uses temporary storage.
   - Every state-changing call extends instance TTL and the TTL of each entry it touches to the network maximum (testnet 3,110,400 ledgers, about 180 days) whenever the remaining TTL is below about 30 days (518,400 ledgers). Both numbers are judgments, and their cost is measured in section 9.
   - An archived open goal is restored automatically by the next call that simulates it (protocol 23 and later), at that caller's cost. Keepers also extend open goals nearing expiry with ExtendFootprintTTLOp (section 8).
 - **S2 Closed goals are deleted.**
@@ -337,9 +349,10 @@ Agreed 2026-10-22.
     - `create_goal`'s optional `allowance` (amount and expiry ledger) sets the token allowance for scheduled deposits within the same call and signature. Renewing an allowance later is a direct call to the token's `approve`.
     - anyone: `collect(goal_id)`;
     - reads: `goal`, `user_goals` (returns the full records of the user's open goals, at most 20), `open_goals(from_id, limit)`, `next_id`, `preview_withdraw`, configuration reads;
-    - fee-admin: `set_loktin_fee`, `set_fee_recipient`;
-    - pauser: `pause`, `unpause`;
-    - upgrader: `upgrade`;
+    - fee-admin: `set_loktin_fee(bps, caller)`, `set_fee_recipient(address, caller)`;
+    - pauser: `pause(caller)`, `unpause(caller)`;
+    - upgrader: `upgrade(new_wasm_hash, operator)`;
+    - every role function takes the acting address as its last argument, following OpenZeppelin's pattern, and checks its role and its signature;
     - admin: OpenZeppelin role management.
   - Spend & Save:
     - user: `enroll`, `update_settings`, `pay_and_save(user, integrator, to, amount)` where `to` may be a plain or muxed address, `save_for_spend(user, integrator, spent)`, `withdraw(user, integrator, amount)`, `close(user, integrator)`;
@@ -350,7 +363,7 @@ Agreed 2026-10-22.
 - **S6 Events.** Event names and fields are a documented public interface.
   - Target Savings: `goal_created`, `deposited` (manual, scheduled or skim), `missed` (number of periods), `withdrawn` (amount, penalty, Loktin fee, integrator fee), `goal_closed`.
   - Spend & Save: `enrolled`, `settings_updated`, `saved` (spend, skim, destination, shortfall), `paid`, `withdrawn`, `enrollment_closed`.
-  - Both: `loktin_fee_set`, `fee_recipient_set`, plus the OpenZeppelin role, pause and upgrade events.
+  - Both: `loktin_fee_set`, `fee_recipient_set`, `upgraded` (new Wasm hash, operator), plus OpenZeppelin's role and pause events. OpenZeppelin's upgrade function emits no event of its own, so `upgraded` is ours. The contract implements OpenZeppelin's `Upgradeable` trait exactly. A contract cannot read the new Wasm's metadata on chain, so the event carries no version string. The version is found by matching the Wasm hash to the attested release build (V4), which anyone can verify.
 - **S7 Error codes.** 1 to 99 shared, 100 to 199 Target Savings, 200 to 299 Spend & Save. Each code is documented and never reused. OpenZeppelin uses 1000 and above (pausable 1000 to 1001, access control 2000 to 2010).
 - **S8 Code safety.**
   - Checked arithmetic on every amount.
@@ -359,12 +372,12 @@ Agreed 2026-10-22.
   - UTC day of month and month number come from the ledger timestamp using Howard Hinnant's civil_from_days algorithm, unit-tested against known dates.
 - **S9 Spend & Save enrolments.**
   - One enrolment per user per integrator, at most 5 per user.
-  - Within the withdrawal window the user may withdraw any amount up to the balance.
+  - Within the withdrawal window the user may withdraw any amount from 1 base unit up to the balance.
   - Skim rate, monthly cap and destination may change at any time. The withdrawal day change follows P16. Fee rates stay fixed (R3).
   - A user may close an enrolment once its balance is zero.
 - **S10 Skims into a goal.**
   - A skim sent to a Target Savings goal is an ordinary deposit by the user into their own goal, under the same signature. It is capped at the amount the goal still needs.
-  - Any remainder, and any skim aimed at a goal that is full or closed, goes to the Spend & Save balance.
+  - Any remainder, and any skim aimed at a goal that is full, closed, past its deadline or owned by someone else, goes to the Spend & Save balance. Nothing fails because of the destination.
 
 ### 6.3 Threat model
 
@@ -411,10 +424,16 @@ Decisions:
 - **K3 Injected signer.**
   - The integrator passes `signTransaction` and optionally `signAuthEntry` in the types above.
   - A Node signer built from a secret key is offered only for the keeper and tests. It never appears in browser examples.
-- **K4 Generated contract code.**
-  - Contract client code is generated from the built contract Wasm with the pinned Stellar CLI, and committed.
-  - CI regenerates it and fails on any difference.
-  - If the generated code needs a `Buffer` polyfill, the build stops for an owner decision.
+- **K4 Contract spec, not generated client code.** Amended 2026-10-22 (W39).
+  - The Stellar CLI 28.1.0 TypeScript bindings template does several things we don't want:
+    - imports the `buffer` package and sets `window.Buffer` globally;
+    - re-exports all of `@stellar/stellar-sdk`;
+    - depends on stellar-sdk ^16;
+    - maps bytes to `Buffer`.
+    So generated client code is not shipped.
+  - Instead, the contract spec entries are extracted from the built Wasm and committed as base64 strings. stellar-sdk 17's `contract.Spec` accepts base64 entries and offers `Spec.fromWasm`.
+  - The SDK builds `contract.Client` from that spec, and the hand-written typed modules (K1) wrap it.
+  - CI re-extracts the spec from freshly built Wasm and fails on any difference.
 - **K5 Write flow.**
   - Every write follows the same steps: validate inputs locally, look up the account, simulate, sign through the injected signer, send, then wait for the outcome.
   - Archived entries are restored automatically through simulation (section 6, S1).
@@ -515,7 +534,9 @@ Agreed 2026-10-22. Stellar's testing guides (unit, auth, events, integration, te
   - skims never exceed the monthly cap (P13).
 - **T4 Integration tests.** Spend & Save depositing into a real Target Savings contract (P15), using a real Stellar asset contract created in the test environment.
 - **T5 TTL tests.** Touched entries are extended, and an archived open goal can be restored.
-- **T6 Upgrade tests.** Only the upgrader can upgrade, and stored records remain readable after an upgrade (C5).
+- **T6 Upgrade tests.**
+  - Only the upgrader can upgrade, stored records remain readable after an upgrade, and `upgraded` is emitted with the new Wasm hash and the operator (C5).
+  - These tests use the real compiled Wasm, so contracts are always built with `stellar contract build` before the tests run, in CI and locally. A repo script runs both in that order.
 - **T7 SDK tests.** A fake RPC is injected through the stellar-sdk `server` option. The tests cover:
   - error mapping;
   - amount helpers;
