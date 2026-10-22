@@ -23,7 +23,9 @@ Agreed constraints:
 6. **New contract addresses.** The new contracts are new deployments. Nothing migrates from the old contracts.
 7. **Fees.** Any early-withdrawal penalty goes to an address the integrator sets. Loktin takes no fee in this sprint. A revenue model for Loktin is planned separately and must be possible within the contract design.
 8. **Runtimes.** Browser and Node.
-9. **Publishing.** The repo stays private and nothing is published to npm until the owner says so. The planned moment is when the core client and signer injection work against testnet: the repo goes public first, then a preview version is published, on the owner's go-ahead.
+9. **Publishing.** Nothing is published until the owner says so.
+   - The repo goes public at B5, just before the release build and testnet deploy. GitHub artifact attestations (V4) work only for public repositories on the Team plan, so this is what lets the deployed contracts be attested. Amended 2026-10-22 (W46).
+   - The first npm preview is published once the core client and signer injection work against testnet (B6), on the owner's go-ahead.
 10. **First integrator.** Loktin's own reference app.
 
 ### 0.1 SOW coverage
@@ -576,7 +578,7 @@ Agreed 2026-10-22.
   - If npm requires a first manual publish for a new package, the owner does it once. That one version has no provenance.
 - **V3 Release flow.** The owner pushes a version tag. CI runs every check, publishes, and creates a GitHub release from the changelog.
 - **V4 Build verification.**
-  - Release Wasm is built in GitHub Actions following SEP-55 (Draft): a metadata entry in the Wasm plus a GitHub artifact attestation.
+  - Release Wasm is built in GitHub Actions following SEP-55 (Draft): a `source_repo=github:Lokt-In/loktin-sdk` metadata entry in the Wasm plus a GitHub artifact attestation. GitHub docs: on Free, Pro and Team plans, attestations work only for public repositories, so this runs after the repo is public (constraint 9).
   - Loktin's testnet instances are deployed from exactly that Wasm.
   - If time runs short, the evidence records each Wasm hash and commit instead.
 - **V5 Deploy runbook (owner).**
@@ -621,8 +623,8 @@ Agreed 2026-10-22. Each part: build, review, commit and merge by the owner. Date
 | B2 | Rust workspace, `contracts/common`, Rust CI | 23 Oct |
 | B3 | Target Savings contract (sections 4 to 6) with tests T1 to T6 | 25 Oct |
 | B4 | Spend & Save contract, including P15, with tests | 27 Oct |
-| B5 | Release Wasm build with SEP-55 attestation, deploy and smoke scripts. Owner deploys to testnet; reviewer verifies | 28 Oct |
-| B6 | SDK core and both primitive modules (K1 to K12) with tests T7. Repo goes public and preview `0.1.0` is published, on the owner's go-ahead | 30 Oct |
+| B5 | Repo goes public. Release Wasm build with SEP-55 attestation, deploy and smoke scripts. Owner deploys to testnet; reviewer verifies | 28 Oct |
+| B6 | SDK core and both primitive modules (K1 to K12) with tests T7. Preview `0.1.0` is published, on the owner's go-ahead | 30 Oct |
 | B7 | Local-network end-to-end tests in CI (T8). Owner runs the testnet smoke script and creates the evidence goals | 31 Oct |
 | B8 | Keeper client and template; hourly evidence keeper. Owner adds the keeper secret | 1 Nov |
 | B9 | Docs in `loktin-docs` (second builder session) | 2 Nov |
