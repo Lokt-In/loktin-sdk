@@ -24,3 +24,20 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    ignore:
+      # OpenZeppelin 0.8.0 requires soroban-sdk ^28 (C6).
+      - dependency-name: soroban-sdk
+        update-types:
+          - version-update:semver-major
+      - dependency-name: stellar-access
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: stellar-contract-utils
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: stellar-macros
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
