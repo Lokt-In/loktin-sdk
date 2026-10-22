@@ -9,7 +9,7 @@ You need the Stellar CLI 28.1.0, the GitHub CLI (`gh`), `sha256sum` and `python3
 | Alias                  | Role                                                     |
 | ---------------------- | -------------------------------------------------------- |
 | `loktin-deployer`      | Pays for the Wasm upload and the deploys. Holds no role. |
-| `loktin-admin`         | Admin: grants and revokes roles (C2).                    |
+| `loktin-sdk-admin`     | Admin: grants and revokes roles (C2).                    |
 | `loktin-fee-admin`     | Fee-admin: sets the Loktin fee rate and recipient (R6).  |
 | `loktin-pauser`        | Pauser: pauses and unpauses (C4).                        |
 | `loktin-upgrader`      | Upgrader: replaces the contract code (C5).               |
@@ -23,12 +23,14 @@ To use other alias names, set `LOKTIN_DEPLOYER`, `LOKTIN_ADMIN`, `LOKTIN_FEE_ADM
 
    ```sh
    stellar keys generate loktin-deployer --network testnet --fund
-   stellar keys generate loktin-admin --network testnet --fund
+   stellar keys generate loktin-sdk-admin --network testnet --fund
    stellar keys generate loktin-fee-admin --network testnet --fund
    stellar keys generate loktin-pauser --network testnet --fund
    stellar keys generate loktin-upgrader --network testnet --fund
    stellar keys generate loktin-fee-recipient --network testnet --fund
    ```
+
+   Use alias names that are new for this deployment. If `stellar keys generate` says a name already exists, do not reuse that key: pick a new name and set the matching `LOKTIN_*` variable. Each role must have its own new key (C2).
 
 2. Push a release tag to run the release workflow (`.github/workflows/release-contracts.yml`). Push it on the merged `main` commit, after the pull request that adds the release workflow and these scripts is merged:
 

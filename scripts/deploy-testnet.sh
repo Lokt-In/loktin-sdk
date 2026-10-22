@@ -5,11 +5,14 @@
 #
 # Keys are referred to by alias only. Set these to use other aliases:
 #   LOKTIN_DEPLOYER       (default loktin-deployer)       pays for upload and deploy
-#   LOKTIN_ADMIN          (default loktin-admin)          admin role
+#   LOKTIN_ADMIN          (default loktin-sdk-admin)      admin role
 #   LOKTIN_FEE_ADMIN      (default loktin-fee-admin)      fee-admin role
 #   LOKTIN_PAUSER         (default loktin-pauser)         pauser role
 #   LOKTIN_UPGRADER       (default loktin-upgrader)       upgrader role
 #   LOKTIN_FEE_RECIPIENT  (default loktin-fee-recipient)  receives Loktin fees
+#
+# Every role needs its own key (C2): the script stops if any two of these
+# resolve to the same address.
 #
 # Needs: stellar (CLI 28.1.0), gh, sha256sum and python3.
 set -euo pipefail
@@ -25,7 +28,7 @@ LOKTIN_FEE_BPS=0
 MIN_CADENCE=86400
 
 LOKTIN_DEPLOYER="${LOKTIN_DEPLOYER:-loktin-deployer}"
-LOKTIN_ADMIN="${LOKTIN_ADMIN:-loktin-admin}"
+LOKTIN_ADMIN="${LOKTIN_ADMIN:-loktin-sdk-admin}"
 LOKTIN_FEE_ADMIN="${LOKTIN_FEE_ADMIN:-loktin-fee-admin}"
 LOKTIN_PAUSER="${LOKTIN_PAUSER:-loktin-pauser}"
 LOKTIN_UPGRADER="${LOKTIN_UPGRADER:-loktin-upgrader}"
@@ -40,6 +43,33 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEPLOYMENTS="${ROOT}/deployments/testnet.json"
 TARGET_SAVINGS_WASM="${WASM_DIR}/loktin_target_savings.wasm"
 SPEND_SAVE_WASM="${WASM_DIR}/loktin_spend_save.wasm"
+
+# Look up every address first, before any file check or network call.
+echo "== Looking up role addresses"
+address() { stellar keys public-key "$1"; }
+DEPLOYER="$(address "$LOKTIN_DEPLOYER")"
+ADMIN="$(address "$LOKTIN_ADMIN")"
+FEE_ADMIN="$(address "$LOKTIN_FEE_ADMIN")"
+PAUSER="$(address "$LOKTIN_PAUSER")"
+UPGRADER="$(address "$LOKTIN_UPGRADER")"
+FEE_RECIPIENT="$(address "$LOKTIN_FEE_RECIPIENT")"
+echo "deployer       ${DEPLOYER}"
+echo "admin          ${ADMIN}"
+echo "fee-admin      ${FEE_ADMIN}"
+echo "pauser         ${PAUSER}"
+echo "upgrader       ${UPGRADER}"
+echo "fee recipient  ${FEE_RECIPIENT}"
+
+# C2: a separate key per role. Refuse any address used twice.
+DUPLICATES="$(printf '%s\n' "$DEPLOYER" "$ADMIN" "$FEE_ADMIN" "$PAUSER" "$UPGRADER" "$FEE_RECIPIENT" \
+  | sort | uniq -d)"
+if [ -n "$DUPLICATES" ]; then
+  echo "refusing to deploy: these addresses hold more than one of deployer, admin," >&2
+  echo "fee_admin, pauser, upgrader and fee_recipient:" >&2
+  echo "$DUPLICATES" >&2
+  echo "Each role needs its own new key (C2). Set the LOKTIN_* variables to separate aliases." >&2
+  exit 1
+fi
 
 echo "== Checking SHA256SUMS"
 (cd "$WASM_DIR" && sha256sum --check --strict SHA256SUMS)
@@ -60,19 +90,6 @@ fi
 RELEASE_TAG="${TS_REF#refs/tags/}"
 COMMIT="$TS_COMMIT"
 echo "release ${RELEASE_TAG} at commit ${COMMIT}"
-
-echo "== Looking up role addresses"
-address() { stellar keys public-key "$1"; }
-ADMIN="$(address "$LOKTIN_ADMIN")"
-FEE_ADMIN="$(address "$LOKTIN_FEE_ADMIN")"
-PAUSER="$(address "$LOKTIN_PAUSER")"
-UPGRADER="$(address "$LOKTIN_UPGRADER")"
-FEE_RECIPIENT="$(address "$LOKTIN_FEE_RECIPIENT")"
-echo "admin          ${ADMIN}"
-echo "fee-admin      ${FEE_ADMIN}"
-echo "pauser         ${PAUSER}"
-echo "upgrader       ${UPGRADER}"
-echo "fee recipient  ${FEE_RECIPIENT}"
 
 echo "== Uploading Wasm"
 upload() {
@@ -101,6 +118,9 @@ TS_ID="$(stellar contract deploy --wasm-hash "$TS_HASH" \
   --min_cadence "$MIN_CADENCE")"
 
 echo "== Deploying Spend & Save"
+# target_savings is an Option<Address>. Stellar CLI 28.1.0 parses every
+# argument that is not a primitive type as JSON, so the id is passed as a
+# JSON string, quotes included. yield_source is omitted, which gives None.
 SS_ID="$(stellar contract deploy --wasm-hash "$SS_HASH" \
   --source-account "$LOKTIN_DEPLOYER" --network "$NETWORK" -- \
   --admin "$ADMIN" \
@@ -110,7 +130,7 @@ SS_ID="$(stellar contract deploy --wasm-hash "$SS_HASH" \
   --token "$USDC" \
   --fee_recipient "$FEE_RECIPIENT" \
   --loktin_fee_bps "$LOKTIN_FEE_BPS" \
-  --target_savings "$TS_ID")"
+  --target_savings "\"${TS_ID}\"")"
 
 echo "== Recording the deployment in ${DEPLOYMENTS}"
 python3 -I - "$DEPLOYMENTS" "$TS_ID" "$TS_HASH" "$SS_ID" "$SS_HASH" "$RELEASE_TAG" "$COMMIT" \

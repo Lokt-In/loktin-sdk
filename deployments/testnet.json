@@ -3,24 +3,24 @@
   "network_passphrase": "Test SDF Network ; September 2015",
   "usdc": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
   "roles": {
-    "admin": "",
-    "fee_admin": "",
-    "pauser": "",
-    "upgrader": "",
-    "fee_recipient": ""
+    "admin": "GBLRCDODEBVISJZKU64JJDPJK6Y5VUYS5DSNCBMTJWC3RMDYLAQ47BHH",
+    "fee_admin": "GDTK23FN4KUACFLXWBXJA74VCBWJREXMNDSG4JVIA66DRQKG5CTCTJ6A",
+    "pauser": "GDS4NBNFAO4LGGETP2WD4WU4NDPVI3CT2XOKJRDF5B354TZGM3Z4LOWF",
+    "upgrader": "GBSSL5XPSTNFJ2J7KT3STB6FCBHED7ZY3HDFJHL6GUQPPDGXZ7CH2KPJ",
+    "fee_recipient": "GBDE532O3GILO7HDUUVTAKFLI44CJTPG7X4BVSDOZSRFJCUZEZYY44RT"
   },
   "contracts": {
     "target_savings": {
-      "id": "",
-      "wasm_hash": "",
-      "release_tag": "",
-      "commit": ""
+      "id": "CCJH2IRI7JVZ7JV7J4XLUPVIPVMLG2HB7OBDQC2F3XLPVOVBH3QQVP4Z",
+      "wasm_hash": "5b67b75f7504bb748e7b4c891cbf956d381d923431c591a2e6bde072d50d047e",
+      "release_tag": "contracts-v0.1.0",
+      "commit": "d5fc95680bd443a5ee41020afd2b43eb9b7a91ca"
     },
     "spend_save": {
-      "id": "",
-      "wasm_hash": "",
-      "release_tag": "",
-      "commit": ""
+      "id": "CCUFRRPCCE7YVKTG3FWE2RAW5ACMU7KVACTVKDM452C5QFMABAXQTTCN",
+      "wasm_hash": "1e655573744740bfbbebbb04b7c54c9058e979c853bc23fe4f71431cc3999183",
+      "release_tag": "contracts-v0.1.0",
+      "commit": "d5fc95680bd443a5ee41020afd2b43eb9b7a91ca"
     }
   }
 }
