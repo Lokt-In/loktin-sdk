@@ -1,0 +1,26 @@
+{
+  "network": "testnet",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "usdc": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  "roles": {
+    "admin": "",
+    "fee_admin": "",
+    "pauser": "",
+    "upgrader": "",
+    "fee_recipient": ""
+  },
+  "contracts": {
+    "target_savings": {
+      "id": "",
+      "wasm_hash": "",
+      "release_tag": "",
+      "commit": ""
+    },
+    "spend_save": {
+      "id": "",
+      "wasm_hash": "",
+      "release_tag": "",
+      "commit": ""
+    }
+  }
+}
