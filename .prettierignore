@@ -1,0 +1,5 @@
+dist
+coverage
+target
+package-lock.json
+docs/architecture.md
