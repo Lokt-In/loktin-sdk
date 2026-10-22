@@ -231,6 +231,8 @@ Agreed 2026-10-22. The contracts enforce every rule in this section. The SDK onl
   - both, added together.
   
   The round-up part is `(unit - spend % unit) % unit`, so a spend that is already a whole number of units adds nothing.
+
+  A skim never exceeds the spend it is taken from. After the two parts are added, the skim is cut to the spend, before the monthly cap and the wallet check. Without this, an extreme round-up unit could move a user's whole wallet into savings and lock it until their withdrawal day.
 - **P13 Monthly cap.** An optional cap on the total saved per calendar month (UTC). Once it is reached, skims shrink to fit the cap. The payment itself is never blocked by the cap.
 - **P14 A skim never blocks a payment.** If the wallet cannot cover the payment plus the skim, the skim shrinks to what remains, down to zero, and the shortfall is recorded. A skim of zero moves nothing but still emits `saved` with the shortfall, so the app can show it.
 - **P15 Destination.** Skims go to either the user's Spend & Save balance or one of the same user's open Target Savings goals. A skim sent to a goal follows that goal's rules. This is the first feature to cut if time runs short.
@@ -367,7 +369,7 @@ Agreed 2026-10-22.
 - **S7 Error codes.** 1 to 99 shared, 100 to 199 Target Savings, 200 to 299 Spend & Save. Each code is documented and never reused. OpenZeppelin uses 1000 and above (pausable 1000 to 1001, access control 2000 to 2010).
 - **S8 Code safety.**
   - Checked arithmetic on every amount.
-  - State is written before any token call.
+  - State is written before any token call. One recorded exception: Spend & Save's single fallible `try_deposit` into the user's own Target Savings goal runs first, because its result decides where the skim goes. It goes to the fixed `target_savings` address set at construction, and that call never calls back into Spend & Save. All Spend & Save state is then written once, before its own token transfers. The Stellar host rolls back a failed sub-call's storage and events (rs-soroban-env, `frame.rs`), so a refused deposit leaves nothing behind.
   - The design does not rely on the host blocking reentrancy, a claim not confirmed in Stellar's docs.
   - UTC day of month and month number come from the ledger timestamp using Howard Hinnant's civil_from_days algorithm, unit-tested against known dates.
 - **S9 Spend & Save enrolments.**
@@ -378,6 +380,8 @@ Agreed 2026-10-22.
 - **S10 Skims into a goal.**
   - A skim sent to a Target Savings goal is an ordinary deposit by the user into their own goal, under the same signature. It is capped at the amount the goal still needs.
   - Any remainder, and any skim aimed at a goal that is full, closed, past its deadline or owned by someone else, goes to the Spend & Save balance. Nothing fails because of the destination.
+  - Spend & Save calls Target Savings through a client trait in `contracts/common` that lists only `goal` and `deposit`. `Goal` and `WithdrawalRule` live in `contracts/common`, and both contracts use those definitions.
+  - Spend & Save uses the fallible calls (`try_goal`, `try_deposit`). Any error from Target Savings, including a paused contract, routes the whole skim to the Spend & Save balance, so a skim never makes `pay_and_save` or `save_for_spend` fail (P14).
 
 ### 6.3 Threat model
 
