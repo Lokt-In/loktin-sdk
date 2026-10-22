@@ -41,6 +41,28 @@ Codes 100 to 199 belong to the Target Savings contract. It also returns the shar
 | 118  | `InvalidIntegrator`       | The integrator is this contract.                                     |
 | 119  | `InvalidFeeRecipient`     | The fee recipient is this contract.                                  |
 
+## Spend & Save codes
+
+Codes 200 to 299 belong to the Spend & Save contract. It also returns the shared codes above, and returns `InvalidAmount` (1) for an amount or spend of zero as well as a negative one.
+
+| Code | Name                      | Meaning                                                                                                |
+| ---- | ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 200  | `EnrollmentNotFound`      | The user has no enrolment with this integrator.                                                        |
+| 201  | `AlreadyEnrolled`         | The user is already enrolled with this integrator.                                                     |
+| 202  | `TooManyEnrollments`      | The user already has 5 enrolments.                                                                     |
+| 203  | `InvalidSkim`             | Neither skim part is set, the percentage is outside 1% to 50%, or the round-up unit is not above zero. |
+| 204  | `InvalidCap`              | The monthly cap is not above zero.                                                                     |
+| 205  | `DestinationUnavailable`  | A goal destination was chosen, and this instance has no Target Savings contract.                       |
+| 206  | `OutsideWindow`           | The current UTC day is not the withdrawal day.                                                         |
+| 207  | `ExceedsBalance`          | The amount is above the Spend & Save balance.                                                          |
+| 208  | `BalanceNotZero`          | The enrolment still holds a balance.                                                                   |
+| 209  | `InvalidIntegrator`       | The integrator is this contract.                                                                       |
+| 210  | `InvalidFeeRecipient`     | The fee recipient is this contract.                                                                    |
+| 211  | `InvalidPayee`            | The payee is this contract.                                                                            |
+| 212  | `PaymentShortfall`        | The user's balance is below the payment.                                                               |
+| 213  | `YieldSourceNotSupported` | A yield source was supplied, and none is supported in this version.                                    |
+| 214  | `ConfigMissing`           | The contract's configuration is missing from storage.                                                  |
+
 ## OpenZeppelin codes
 
 These come from the OpenZeppelin Stellar contracts library, version 0.8.0.

@@ -1215,6 +1215,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "loktin-spend-save"
+version = "0.1.0"
+dependencies = [
+ "loktin-common",
+ "loktin-target-savings",
+ "proptest",
+ "soroban-sdk",
+ "stellar-access",
+ "stellar-contract-utils",
+ "stellar-macros",
+]
+
+[[package]]
 name = "loktin-target-savings"
 version = "0.1.0"
 dependencies = [

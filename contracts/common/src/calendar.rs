@@ -6,7 +6,8 @@
 
 use crate::CommonError;
 
-const SECONDS_PER_DAY: u64 = 86_400;
+/// Seconds in one UTC day.
+pub const SECONDS_PER_DAY: u64 = 86_400;
 
 /// Lowest withdrawal day of the month (P16).
 pub const MIN_DAY: u32 = 1;
@@ -110,7 +111,12 @@ pub fn next_window(ts: u64, day: u32) -> Result<(u64, u64), CommonError> {
     Ok((start, end))
 }
 
-fn check_day(day: u32) -> Result<(), CommonError> {
+/// Checks that `day` is a valid withdrawal day of the month (P16).
+///
+/// # Errors
+///
+/// [`CommonError::InvalidDay`] if `day` is outside 1 to 28.
+pub fn check_day(day: u32) -> Result<(), CommonError> {
     if (MIN_DAY..=MAX_DAY).contains(&day) {
         Ok(())
     } else {
