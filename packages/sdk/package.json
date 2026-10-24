@@ -18,6 +18,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json"
+  },
+  "devDependencies": {
+    "@stellar/stellar-sdk": "17.2.1"
+  },
+  "peerDependencies": {
+    "@stellar/stellar-sdk": "^17.2.1"
   }
 }
