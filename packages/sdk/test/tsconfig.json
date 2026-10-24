@@ -3,7 +3,11 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
     "noEmit": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": {
+      "@loktin/sdk": ["../src/index.ts"],
+      "@loktin/sdk/*": ["../src/*/index.ts"]
+    }
   },
   "include": [".", "../src"]
 }
