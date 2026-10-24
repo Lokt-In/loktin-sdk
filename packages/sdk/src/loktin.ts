@@ -8,7 +8,12 @@ import {
   type WalletError,
 } from '@stellar/stellar-sdk/contract';
 import { Api, Server } from '@stellar/stellar-sdk/rpc';
-import type { ScVal } from '@stellar/stellar-sdk/xdr';
+import {
+  ConfigSettingId,
+  LedgerKey,
+  LedgerKeyConfigSetting,
+  type ScVal,
+} from '@stellar/stellar-sdk/xdr';
 import {
   type LoktinOptions,
   type ResolvedConfig,
@@ -29,6 +34,17 @@ import { type LoktinContract, specs } from './specs.js';
 /** Named arguments of a contract function, as the stellar-sdk contract client takes them. */
 export type ContractArgs = Readonly<Record<string, unknown>>;
 
+/** A contract the SDK calls: one of the Loktin contracts, or the configured token. */
+export type CallTarget = LoktinContract | 'token';
+
+/** Network limits read from the ledger, for allowance expiries (W57). */
+export interface LedgerInfo {
+  /** The latest ledger the RPC knows. */
+  readonly latestLedger: number;
+  /** The longest time to live of a ledger entry, in ledgers. */
+  readonly maxEntryTtl: number;
+}
+
 /** The outcome of a successful write. */
 export interface WriteResult<T> {
   readonly hash: string;
@@ -40,18 +56,24 @@ export interface WriteResult<T> {
 /** A configured Loktin SDK instance. */
 export interface Loktin {
   readonly config: ResolvedConfig;
-  /** Simulates a read-only call (G8, K9). It costs one RPC call, retried on network errors only. */
+  /**
+   * Simulates a read-only call (G8, K9). It costs one RPC call, retried on
+   * network errors only. The first token call also looks up the token
+   * contract, once per instance (W58).
+   */
   read<T = unknown>(
-    contract: LoktinContract,
+    contract: CallTarget,
     method: string,
     args?: ContractArgs,
   ): Promise<T>;
   /** Builds, simulates, signs, sends and confirms a call (K5, K6). */
   write<T = unknown>(
-    contract: LoktinContract,
+    contract: CallTarget,
     method: string,
     args?: ContractArgs,
   ): Promise<WriteResult<T>>;
+  /** Reads the latest ledger and the longest entry time to live, in one RPC call (W57). */
+  ledgerInfo(): Promise<LedgerInfo>;
 }
 
 // K9: a read is retried up to 3 times, on network errors only.
@@ -73,8 +95,26 @@ function sleep(ms: number): Promise<void> {
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) {
+    return error.message;
+  }
+  // The RPC client rejects some lookups with a plain `{ code, message }`.
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+  return String(error);
 }
+
+const STATE_ARCHIVAL_KEY = LedgerKey.configSetting(
+  new LedgerKeyConfigSetting({
+    configSettingId: ConfigSettingId.configSettingStateArchival,
+  }),
+);
 
 function hexOf(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
@@ -101,9 +141,10 @@ function decode(spec: Spec, method: string, value: ScVal | undefined): unknown {
 class LoktinInstance implements Loktin {
   readonly config: ResolvedConfig;
   private readonly server: Server;
-  private readonly readClients = new Map<LoktinContract, Client>();
-  private readonly writeClients = new Map<LoktinContract, Client>();
+  private readonly readClients = new Map<CallTarget, Client>();
+  private readonly writeClients = new Map<CallTarget, Client>();
   private networkCheck: Promise<void> | undefined;
+  private tokenLookup: Promise<Spec> | undefined;
 
   constructor(config: ResolvedConfig) {
     this.config = config;
@@ -113,28 +154,20 @@ class LoktinInstance implements Loktin {
   }
 
   async read<T = unknown>(
-    contract: LoktinContract,
+    contract: CallTarget,
     method: string,
     args: ContractArgs = {},
   ): Promise<T> {
-    const spec = specs[contract];
-    checkCall(spec, method, args);
-    const client = this.client(this.readClients, contract, false);
-    for (let attempt = 0; ; attempt++) {
-      try {
-        return (await this.readOnce(client, spec, method, args)) as T;
-      } catch (error) {
-        const delay = READ_RETRY_DELAYS_MS[attempt];
-        if (!(error instanceof NetworkError) || delay === undefined) {
-          throw error;
-        }
-        await sleep(delay);
-      }
-    }
+    return this.retrying(async () => {
+      const spec = await this.specFor(contract);
+      checkCall(spec, method, args);
+      const client = this.client(this.readClients, contract, spec, false);
+      return (await this.readOnce(client, spec, method, args)) as T;
+    });
   }
 
   async write<T = unknown>(
-    contract: LoktinContract,
+    contract: CallTarget,
     method: string,
     args: ContractArgs = {},
   ): Promise<WriteResult<T>> {
@@ -144,13 +177,14 @@ class LoktinInstance implements Loktin {
         'a write needs publicKey and signer in createLoktin',
       );
     }
-    const spec = specs[contract];
+    // No network call for the Loktin contracts, whose specs are bundled.
+    const spec = await this.specFor(contract);
     checkCall(spec, method, args);
     await this.checkNetwork();
 
     // K5: built with the user's address, so the account is looked up.
     const tx = await this.simulate(
-      this.client(this.writeClients, contract, true),
+      this.client(this.writeClients, contract, spec, true),
       spec,
       method,
       args,
@@ -174,20 +208,97 @@ class LoktinInstance implements Loktin {
     return this.confirm<T>(signed, hash, spec, method);
   }
 
+  async ledgerInfo(): Promise<LedgerInfo> {
+    return this.retrying(async () => {
+      let response: Api.GetLedgerEntriesResponse;
+      try {
+        response = await this.server.getLedgerEntries(STATE_ARCHIVAL_KEY);
+      } catch (error) {
+        throw new NetworkError(
+          `could not read the ledger settings: ${messageOf(error)}`,
+          { cause: error },
+        );
+      }
+      const entry = response.entries[0]?.val;
+      if (
+        entry?.type !== 'configSetting' ||
+        entry.configSetting.type !== 'configSettingStateArchival'
+      ) {
+        throw new UnknownContractError(
+          'the RPC returned no state archival settings',
+        );
+      }
+      return {
+        latestLedger: response.latestLedger,
+        maxEntryTtl: entry.configSetting.stateArchivalSettings.maxEntryTtl,
+      };
+    });
+  }
+
+  // K9: retried up to 3 times, on network errors only.
+  private async retrying<T>(call: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await call();
+      } catch (error) {
+        const delay = READ_RETRY_DELAYS_MS[attempt];
+        if (!(error instanceof NetworkError) || delay === undefined) {
+          throw error;
+        }
+        await sleep(delay);
+      }
+    }
+  }
+
+  // The Loktin specs are bundled. The token's comes from one lookup per
+  // instance, which recognises the Stellar Asset Contract (W58).
+  private specFor(contract: CallTarget): Spec | Promise<Spec> {
+    if (contract !== 'token') {
+      return specs[contract];
+    }
+    const { token, passphrase, rpcUrl, allowHttp } = this.config;
+    this.tokenLookup ??= Client.from({
+      contractId: token,
+      networkPassphrase: passphrase,
+      rpcUrl,
+      allowHttp,
+      server: this.server,
+    }).then(
+      (client) => client.spec,
+      (error: unknown) => {
+        this.tokenLookup = undefined;
+        throw new NetworkError(
+          `could not look up the token contract ${token}: ${messageOf(error)}`,
+          { cause: error },
+        );
+      },
+    );
+    return this.tokenLookup;
+  }
+
+  private contractIdOf(contract: CallTarget): string {
+    const { contracts, token } = this.config;
+    switch (contract) {
+      case 'target-savings':
+        return contracts.targetSavings;
+      case 'spend-save':
+        return contracts.spendSave;
+      case 'token':
+        return token;
+    }
+  }
+
   private client(
-    cache: Map<LoktinContract, Client>,
-    contract: LoktinContract,
+    cache: Map<CallTarget, Client>,
+    contract: CallTarget,
+    spec: Spec,
     forWrite: boolean,
   ): Client {
     let client = cache.get(contract);
     if (client === undefined) {
-      const { contracts, passphrase, rpcUrl, allowHttp, publicKey, signer } =
-        this.config;
-      client = new Client(specs[contract], {
-        contractId:
-          contract === 'target-savings'
-            ? contracts.targetSavings
-            : contracts.spendSave,
+      const { passphrase, rpcUrl, allowHttp, publicKey, signer } = this.config;
+      client = new Client(spec, {
+        contractId: this.contractIdOf(contract),
         networkPassphrase: passphrase,
         rpcUrl,
         allowHttp,
