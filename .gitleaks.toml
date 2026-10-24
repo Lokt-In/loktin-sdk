@@ -1,0 +1,8 @@
+title = "loktin-sdk"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Stellar public account and contract addresses are not secrets"
+regexes = ['''^[GC][A-Z2-7]{55}$''']
