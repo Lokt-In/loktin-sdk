@@ -1,9 +1,23 @@
 {
   "name": "@loktin/sdk",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Headless TypeScript SDK for Loktin's Target Savings and Spend & Save contracts on Stellar",
+  "keywords": [
+    "stellar",
+    "soroban",
+    "savings",
+    "sdk"
+  ],
+  "homepage": "https://github.com/Lokt-In/loktin-sdk/tree/main/packages/sdk#readme",
+  "bugs": "https://github.com/Lokt-In/loktin-sdk/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lokt-In/loktin-sdk.git",
+    "directory": "packages/sdk"
+  },
   "license": "Apache-2.0",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,7 +33,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "engines": {
     "node": ">=22.12.0"
@@ -33,5 +48,9 @@
   },
   "peerDependencies": {
     "@stellar/stellar-sdk": "^17.2.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
   }
 }
