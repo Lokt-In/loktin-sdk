@@ -124,7 +124,7 @@ loktin-sdk/
 | Node | Development and releases use Node 24, because its bundled npm supports `min-release-age` (added in npm 11.10.0; Node 22 bundles npm 10.9). `.nvmrc` holds 24. CI runs the test suite on Node 22, 24 and 26. Published `engines.node` is `>=22.12.0`. |
 | Package manager | npm workspaces. `package-lock.json` is committed and CI installs with `npm ci`. |
 | `.npmrc` | `ignore-scripts=true`, `save-exact=true`, `min-release-age=7`. A package that needs an urgent fix may be listed in `min-release-age-exclude`, and that exemption is a recorded decision. A dependency that cannot work without an install script is a decision for the owner, never a silent change. |
-| TypeScript | 6.0.x, strict mode. Not 7.x until typescript-eslint supports it (8.72.0 supports typescript below 6.1.0). |
+| TypeScript | 6.0.x, strict mode. Not 7.x until typescript-eslint supports it (8.72.0 supports typescript below 6.1.0). `skipLibCheck` stays false. The SDK package compiles with `lib: ["ES2022", "DOM"]`, because `@stellar/stellar-sdk` 17.2.1's own type files use DOM types (`Headers`, `URL`, `AbortSignal`, `RequestInit`). The SDK package does not use @types/node. Amended 2026-10-23 (W49). |
 | Lint and format | ESLint 10 with typescript-eslint 8 (type-aware rules), and Prettier 3. |
 | Tests | Vitest 5. Details in section 9. |
 | Module format | ESM only, with an `exports` map. Node 22.12 and later load ESM through `require()` by default, so CommonJS consumers on supported Node versions still work. |
@@ -137,6 +137,7 @@ loktin-sdk/
 - Every third-party GitHub Action is pinned to a full-length commit SHA, with the version in a trailing comment. Workflows default to `permissions: contents: read`. Only the release job is granted `id-token: write`.
 - Dependabot watches npm, Cargo, GitHub Actions and Docker, with a 7-day cooldown. It ignores TypeScript major 7 until typescript-eslint supports it.
 - Secret scanning: gitleaks runs in CI from day one. GitHub secret scanning and push protection are switched on when the repo goes public, since on private repos they need the paid Secret Protection add-on.
+  - A repo `.gitleaks.toml` extends gitleaks' default rules and allowlists only Stellar public account and contract addresses (56 characters starting with G or C). Public addresses are not secrets, and secret keys (starting with S) are still caught. Amended 2026-10-24 (W55).
 - No git hooks. CI enforces the checks.
 - Local tool settings for anyone working in the repo go in `.git/info/exclude`.
 
@@ -418,15 +419,20 @@ Facts this section rests on, from `@stellar/stellar-sdk` 17.x source and npm met
   - `SignAuthEntry(authEntry, opts) -> { signedAuthEntry, signerAddress?, error? }`.
   
   These match the SEP-43 wallet interface (Draft), Freighter and Stellar Wallets Kit.
-- Without a `publicKey`, the contract client simulates against a local placeholder account and makes no account lookup. A read is one RPC call.
-- `sendTransaction` returns PENDING, DUPLICATE, TRY_AGAIN_LATER or ERROR. The outcome is then read with `getTransaction`.
+- Without a `publicKey`, the contract client simulates against a local placeholder account and makes no account lookup. A read is one RPC call, measured against the testnet contracts.
+- `sendTransaction` returns PENDING, DUPLICATE, TRY_AGAIN_LATER or ERROR. The outcome is then read with `getTransaction`. Stellar's RPC docs say DUPLICATE means the network already has the transaction.
+- The library's own `signAndSend` treats every status except PENDING as a failure, with no retry.
+- The contract client's `restore` option is off by default. Stellar RPC simulates contract calls with automatic restore of archived entries and returns no separate restore step for them (stellar-rpc source and changelog).
+- When a token call fails inside our contract, the top-level error names our contract but carries the token's code. The simulation's diagnostic events, oldest first, show which contract raised it. Token error codes are 2 to 15 (rs-soroban-env), so 2 to 5 overlap our shared codes.
+- The package root also loads Horizon, federation, webauth and the bindings generator. The `/contract`, `/rpc`, `/base` and `/xdr` subpaths do not.
 - The ESM build uses no Node `Buffer`.
 - 17.3.0 is less than 7 days old as of 2026-10-22. 17.2.1 (2026-10-01) is the newest allowed, and requires Node 22.12 or later.
 
 Decisions:
 
 - **K1 One package with sections.** `@loktin/sdk` (core), `@loktin/sdk/target-savings`, `@loktin/sdk/spend-save` and `@loktin/sdk/keeper` (section 8), as subpath exports.
-- **K2 Peer dependency.** `@stellar/stellar-sdk` `^17.2.1` is a peer dependency, so the integrator's app and the SDK share one copy (the package is about 51.6 MB unpacked).
+  - The SDK imports only the `/contract`, `/rpc`, `/base` and `/xdr` subpaths of `@stellar/stellar-sdk`, never its root, so browser bundles stay small. A lint rule enforces this. Amended 2026-10-23 (W52).
+- **K2 Peer dependency.** `@stellar/stellar-sdk` `^17.2.1` is a peer dependency, so the integrator's app and the SDK share one copy (17.2.1 is about 50.9 MB unpacked).
 - **K3 Injected signer.**
   - The integrator passes `signTransaction` and optionally `signAuthEntry` in the types above.
   - A Node signer built from a secret key is offered only for the keeper and tests. It never appears in browser examples.
@@ -440,20 +446,28 @@ Decisions:
   - Instead, the contract spec entries are extracted from the built Wasm and committed as base64 strings. stellar-sdk 17's `contract.Spec` accepts base64 entries and offers `Spec.fromWasm`.
   - The SDK builds `contract.Client` from that spec, and the hand-written typed modules (K1) wrap it.
   - CI re-extracts the spec from freshly built Wasm and fails on any difference.
-- **K5 Write flow.**
+- **K5 Write flow.** Amended 2026-10-23 (W51).
   - Every write follows the same steps: validate inputs locally, look up the account, simulate, sign through the injected signer, send, then wait for the outcome.
-  - Archived entries are restored automatically through simulation (section 6, S1).
+  - Reads are built without the user's address, so they cost one RPC call. Writes use the user's address, so the account is looked up.
+  - Archived entries are restored automatically through simulation (section 6, S1). The contract client's `restore` option stays off, so the user is never asked to sign a separate restore transaction. If a restore step is ever reported, the SDK returns a typed error.
   - On the first write, the SDK confirms that the RPC's network passphrase matches the configured network.
-- **K6 Retries without double actions.**
-  - TRY_AGAIN_LATER: the same signed transaction is resent up to 3 times with increasing delays.
-  - Waiting for an outcome times out: the SDK returns a pending result with the transaction hash, and never builds a new transaction by itself.
+- **K6 Retries without double actions.** Amended 2026-10-23 (W50).
+  - The SDK uses the contract client to build, simulate and sign, and sends and polls the transaction itself.
+  - PENDING or DUPLICATE: the SDK polls for the outcome.
+  - TRY_AGAIN_LATER: the same signed transaction is resent up to 3 times, after 1, 2 and 4 seconds.
+  - Waiting for an outcome times out after 60 seconds: the SDK returns a pending result with the transaction hash and the time the transaction stops being valid, and never builds a new transaction by itself.
   - Reads are retried up to 3 times on network errors.
-- **K7 Typed errors.** Every error has a stable code and type:
+- **K7 Typed errors.** Every error has a stable code and type. Amended 2026-10-23 (W48):
   - invalid input, caught before any network call;
   - contract error, mapped from the section 6 codes;
+  - token error, mapped from the Stellar Asset Contract's codes;
+  - unknown contract error, for any other contract;
   - signer refused;
   - RPC or network failure;
+  - transaction failed on chain;
   - pending, outcome unknown yet.
+
+  Each error is attributed to the contract that raised it, read from the simulation's diagnostic events, so a token code is never shown as one of ours. docs/errors.md lists the token codes and OpenZeppelin's role transfer codes (2200 to 2203).
 - **K8 Amounts.** All amounts are `bigint` in base units (USDC on Stellar has 7 decimals). Helpers convert decimal strings to and from base units. Floating-point numbers are never used for amounts.
 - **K9 Read adapter.**
   - A `ReadAdapter` interface covers every read.
@@ -575,7 +589,10 @@ Agreed 2026-10-22.
 - **V2 Publishing.**
   - Releases are published from GitHub Actions with npm trusted publishing and provenance, once the repo is public.
   - The owner creates the `loktin` npm organisation with two-factor authentication and configures the trusted publisher. A new trusted-publisher configuration must complete its first publish within 2 days or it expires.
-  - If npm requires a first manual publish for a new package, the owner does it once. That one version has no provenance.
+  - npm's docs say a package must already exist before a trusted publisher can be configured. So the owner publishes `0.1.0` by hand, once. That one version has no provenance. Amended 2026-10-23 (W53).
+  - The owner configures the trusted publisher only when the next release is ready to go from CI, because of the 2-day limit.
+  - `package.json` `repository.url` is `git+https://github.com/Lokt-In/loktin-sdk.git`, with `directory` set to `packages/sdk`. npm requires an exact match for trusted publishing.
+  - Trusted publishing needs npm 11.5.1 and Node 22.14.0 or later, so the release job runs on Node 24.
 - **V3 Release flow.** The owner pushes a version tag. CI runs every check, publishes, and creates a GitHub release from the changelog.
 - **V4 Build verification.**
   - Release Wasm is built in GitHub Actions following SEP-55 (Draft): a `source_repo=github:Lokt-In/loktin-sdk` metadata entry in the Wasm plus a GitHub artifact attestation. GitHub docs: on Free, Pro and Team plans, attestations work only for public repositories, so this runs after the repo is public (constraint 9).
@@ -624,7 +641,7 @@ Agreed 2026-10-22. Each part: build, review, commit and merge by the owner. Date
 | B3 | Target Savings contract (sections 4 to 6) with tests T1 to T6 | 25 Oct |
 | B4 | Spend & Save contract, including P15, with tests | 27 Oct |
 | B5 | Repo goes public. Release Wasm build with SEP-55 attestation, deploy and smoke scripts. Owner deploys to testnet; reviewer verifies | 28 Oct |
-| B6 | SDK core and both primitive modules (K1 to K12) with tests T7. Preview `0.1.0` is published, on the owner's go-ahead | 30 Oct |
+| B6 | SDK core and both primitive modules (K1 to K12) with tests T7, in three parts, each checked and merged on its own: 6a core, 6b the two modules and helpers, 6c the npm release workflow and package metadata. Preview `0.1.0` is published, on the owner's go-ahead. Amended 2026-10-23 (W54) | 30 Oct |
 | B7 | Local-network end-to-end tests in CI (T8). Owner runs the testnet smoke script and creates the evidence goals | 31 Oct |
 | B8 | Keeper client and template; hourly evidence keeper. Owner adds the keeper secret | 1 Nov |
 | B9 | Docs in `loktin-docs` (second builder session) | 2 Nov |
