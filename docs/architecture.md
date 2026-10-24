@@ -598,7 +598,14 @@ Agreed 2026-10-22.
   - The owner configures the trusted publisher only when the next release is ready to go from CI, because of the 2-day limit.
   - `package.json` `repository.url` is `git+https://github.com/Lokt-In/loktin-sdk.git`, with `directory` set to `packages/sdk`. npm requires an exact match for trusted publishing.
   - Trusted publishing needs npm 11.5.1 and Node 22.14.0 or later, so the release job runs on Node 24.
-- **V3 Release flow.** The owner pushes a version tag. CI runs every check, publishes, and creates a GitHub release from the changelog.
+  - Releases from CI are staged, never published directly. The trusted publisher allows `npm stage publish` only. CI builds, checks and stages each version with provenance, and nothing goes live until the owner approves it with two-factor authentication. Once a CI release has worked, the package's publishing access is set to require two-factor authentication and disallow tokens. Amended 2026-10-24 (W60).
+  - The package ships `src/` next to `dist/`, so its source maps resolve for integrators. Amended 2026-10-24 (W61).
+- **V3 Release flow.** Amended 2026-10-24 (W62).
+  - A separate `release-sdk.yml` workflow runs on a pushed `sdk-v<version>` tag. It refuses a tag that is not on `main` or does not match the package version.
+  - It runs every Node check on Node 24.22.0 (bundling npm 11.19.1; staging needs npm 11.15.0), with no caching.
+  - It stages the version, or skips staging when that version is already on npm (the hand-published `0.1.0`).
+  - It creates a draft GitHub release from the version's changelog section, which the owner publishes after approving the staged version.
+  - The owner's steps are in `docs/release.md`.
 - **V4 Build verification.**
   - Release Wasm is built in GitHub Actions following SEP-55 (Draft): a `source_repo=github:Lokt-In/loktin-sdk` metadata entry in the Wasm plus a GitHub artifact attestation. GitHub docs: on Free, Pro and Team plans, attestations work only for public repositories, so this runs after the repo is public (constraint 9).
   - Loktin's testnet instances are deployed from exactly that Wasm.
