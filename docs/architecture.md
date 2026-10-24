@@ -220,6 +220,7 @@ Agreed 2026-10-22. The contracts enforce every rule in this section. The SDK onl
 - **P8 No names on chain.** Goal labels live in the integrator's own app. The contract stores no names.
 - **P9 Allowance horizon.** Scheduled deposits draw on a token allowance.
   - The SDK computes the amount and expiry needed, and reports when the app must ask the user to approve again (at most about 180 days ahead, per 4.1).
+  - The amount covers only the scheduled deposits due before the allowance expires, capped at what the goal still needs. The expiry is the deadline's ledger (estimated at 5 seconds per ledger, plus one day of margin), capped at the latest ledger the network allows. When a goal outlives its allowance, the SDK returns a renew-by date 7 days before the expiry. Amended 2026-10-24 (W57).
   - A deposit that falls due after the allowance has expired is recorded as missed.
 - **P10 Open goals per user.** At most 20 open goals per user. The number is a product judgment.
 
@@ -451,6 +452,7 @@ Decisions:
   - Reads are built without the user's address, so they cost one RPC call. Writes use the user's address, so the account is looked up.
   - Archived entries are restored automatically through simulation (section 6, S1). The contract client's `restore` option stays off, so the user is never asked to sign a separate restore transaction. If a restore step is ever reported, the SDK returns a typed error.
   - On the first write, the SDK confirms that the RPC's network passphrase matches the configured network.
+  - Local validation repeats every contract check that needs no chain data, such as amounts, rates, days and deadlines, and fails before any network call. Checks that need chain data, such as the minimum cadence, the open-goal limit or whether an enrolment exists, stay with the contract, and simulation reports them before the user signs. Amended 2026-10-24 (W59).
 - **K6 Retries without double actions.** Amended 2026-10-23 (W50).
   - The SDK uses the contract client to build, simulate and sign, and sends and polls the transaction itself.
   - PENDING or DUPLICATE: the SDK polls for the outcome.
@@ -477,7 +479,10 @@ Decisions:
   - `createLoktin({ network, rpcUrl?, contracts?, signer?, publicKey?, readAdapter? })`.
   - `"testnet"` includes Loktin's testnet contract addresses. An integrator's own deployment (C1) passes its own addresses.
   - There is no mainnet configuration in this sprint.
-- **K11 Helpers.** Withdrawal preview, skim preview, allowance amount and expiry, and withdrawal windows in the user's local time (section 4.5).
+- **K11 Helpers.** Withdrawal preview, skim preview, allowance amount and expiry, and withdrawal windows in the user's local time (section 4.5). Amended 2026-10-24 (W56, W58).
+  - Previews come from the contracts' own reads (Target Savings `preview_withdraw`; Spend & Save `preview_skim`, `preview_withdraw` and `next_window`), one RPC call each, so they cannot drift from the contracts.
+  - The SDK does its own maths only where no contract read can help: the worst-case split shown before a goal is created, the allowance amount and expiry, local-time display, and the effective withdrawal day shown for an enrolment.
+  - Token calls (allowance renewal, balance and allowance reads) go through stellar-sdk's public `Client.from`, which recognises the Stellar Asset Contract after one lookup per SDK instance.
 - **K12 Browser targets.**
   - Output targets browsers that support ES2022 and BigInt.
   - Browser support is claimed in the docs only after the reference app smoke test in a real browser (section 9, T11).
