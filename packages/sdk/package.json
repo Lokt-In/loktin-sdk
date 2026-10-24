@@ -8,6 +8,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./target-savings": {
+      "types": "./dist/target-savings/index.d.ts",
+      "default": "./dist/target-savings/index.js"
+    },
+    "./spend-save": {
+      "types": "./dist/spend-save/index.d.ts",
+      "default": "./dist/spend-save/index.js"
     }
   },
   "files": [

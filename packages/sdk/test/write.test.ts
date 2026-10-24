@@ -1,4 +1,4 @@
-import { TransactionBuilder } from '@stellar/stellar-sdk/base';
+import { StrKey, TransactionBuilder } from '@stellar/stellar-sdk/base';
 import type { SignTransaction } from '@stellar/stellar-sdk/contract';
 import { ScVal } from '@stellar/stellar-sdk/xdr';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,6 +17,7 @@ import {
   FakeServer,
   TESTNET_PASSPHRASE,
   USER,
+  authEntryFor,
   errorEvent,
   failed,
   notFound,
@@ -373,5 +374,25 @@ describe('signers', () => {
       walletCode: undefined,
       walletMessage: 'wallet closed',
     });
+  });
+
+  it('refuse a call that needs another address to sign, as INVALID_INPUT', async () => {
+    const other = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(8));
+    server.simulations.length = 0;
+    server.simulations.push(
+      simulationSuccess(ScVal.scvVoid(), {
+        auth: [authEntryFor(other, TESTNET.contracts.targetSavings)],
+      }),
+    );
+    const error = await settle(
+      loktin().write('target-savings', 'deposit', DEPOSIT),
+    );
+    expect(error).toBeInstanceOf(InvalidInputError);
+    expect((error as Error).message).toContain(
+      'publicKey must be the address the call acts for',
+    );
+    expect((error as Error).message).toContain(other);
+    expect(signTransaction).not.toHaveBeenCalled();
+    expect(server.methods()).not.toContain('sendTransaction');
   });
 });

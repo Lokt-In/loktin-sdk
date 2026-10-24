@@ -5,6 +5,8 @@ import type {
 } from '@stellar/stellar-sdk/contract';
 import type { Server } from '@stellar/stellar-sdk/rpc';
 import { InvalidInputError } from './errors.js';
+import type { SpendSaveReadAdapter } from './spend-save/types.js';
+import type { TargetSavingsReadAdapter } from './target-savings/types.js';
 import {
   type ContractIds,
   type NetworkSettings,
@@ -20,9 +22,21 @@ export interface LoktinSigner {
 
 /**
  * Serves reads from somewhere other than the chain, such as an indexer (K9).
- * Its read methods are added with the Target Savings and Spend & Save modules.
+ * Each module read has an optional method here. A read whose method is
+ * present uses it; any other read goes to the chain. Writes never use it.
  */
-export type ReadAdapter = object;
+export interface ReadAdapter {
+  readonly targetSavings?: TargetSavingsReadAdapter;
+  readonly spendSave?: SpendSaveReadAdapter;
+}
+
+/** The integrator a module works for, and its fee (R4). */
+export interface IntegratorOptions {
+  /** The integrator's address (G or C), which receives its fees and penalties. */
+  readonly integrator: string;
+  /** The integrator fee in basis points, at most 100. */
+  readonly integratorFeeBps: number;
+}
 
 /** Options for {@link createLoktin} (K10). */
 export interface LoktinOptions {
