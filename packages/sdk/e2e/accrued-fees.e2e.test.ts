@@ -53,6 +53,9 @@ describe('accrued fees with an integrator that has no trustline', () => {
       allowance: 'none',
     });
     await userSavings.deposit(goal.result, toBaseUnits('10'));
+    // The fee recipient is shared with the other files, so its increase is
+    // checked, not its total.
+    const recipientBefore = await userSavings.accruedFees(feeRecipient);
     const withdrawn = await userSavings.withdraw(goal.result);
     expect(withdrawn.result).toEqual({
       amount: toBaseUnits('10'),
@@ -63,7 +66,7 @@ describe('accrued fees with an integrator that has no trustline', () => {
     });
     await expect(userSavings.accruedFees()).resolves.toBe(toBaseUnits('1.1'));
     await expect(userSavings.accruedFees(feeRecipient)).resolves.toBe(
-      toBaseUnits('0.1'),
+      recipientBefore + withdrawn.result.loktinFee,
     );
   });
 
@@ -76,6 +79,9 @@ describe('accrued fees with an integrator that has no trustline', () => {
         withdrawalDay: utcDay(),
       });
       await userSpendSave.saveForSpend(toBaseUnits('100'));
+      // The fee recipient is shared with the other files, so its increase
+      // is checked, not its total.
+      const recipientBefore = await userSpendSave.accruedFees(feeRecipient);
       const withdrawn = await userSpendSave.withdraw(toBaseUnits('10'));
       expect(withdrawn.result).toEqual({
         amount: toBaseUnits('10'),
@@ -87,7 +93,7 @@ describe('accrued fees with an integrator that has no trustline', () => {
         toBaseUnits('0.1'),
       );
       await expect(userSpendSave.accruedFees(feeRecipient)).resolves.toBe(
-        toBaseUnits('0.1'),
+        recipientBefore + withdrawn.result.loktinFee,
       );
     },
   );
