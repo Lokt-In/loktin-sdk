@@ -13,12 +13,13 @@ Event names and fields are a public interface (S6). Each event's first topic is 
 | `goal_closed`       | `goal_id`, `owner` | none                                                                                                                   |
 | `loktin_fee_set`    | none               | `loktin_fee_bps` (for goals created from now on)                                                                       |
 | `fee_recipient_set` | none               | `fee_recipient`                                                                                                        |
+| `fees_claimed`      | `recipient`        | `amount` (every fee accrued to the recipient, now paid out)                                                            |
 | `upgraded`          | none               | `new_wasm_hash`, `operator`                                                                                            |
 
 Notes:
 
 - `missed` comes just before the `deposited` of the collection that recorded the missed periods.
-- `withdrawn` is followed by `goal_closed` in the same call.
+- `withdrawn` is followed by `goal_closed` in the same call. Its `penalty` and `integrator_fee` accrue to the goal's integrator, and its `loktin_fee` to the fee recipient. Only `to_user` is transferred. Each recipient is paid when it calls `claim_fees`, which emits `fees_claimed`.
 - `upgraded` is emitted by the upgrade call before the new code takes over. OpenZeppelin's upgrade function emits no event of its own.
 
 ## Spend & Save
@@ -33,6 +34,7 @@ Notes:
 | `enrollment_closed` | `user`, `integrator` | none                                                                                                                          |
 | `loktin_fee_set`    | none                 | `loktin_fee_bps` (for enrolments created from now on)                                                                         |
 | `fee_recipient_set` | none                 | `fee_recipient`                                                                                                               |
+| `fees_claimed`      | `recipient`          | `amount` (every fee accrued to the recipient, now paid out)                                                                   |
 | `upgraded`          | none                 | `new_wasm_hash`, `operator`                                                                                                   |
 
 The `saved` fields:
@@ -44,6 +46,8 @@ The `saved` fields:
 - `to_balance`: the amount saved to the Spend & Save balance;
 - `to_goal`: the amount deposited into a Target Savings goal;
 - `goal_id`: the goal that received `to_goal`, or `None` when `to_goal` is 0.
+
+In `withdrawn`, only `to_user` is transferred. The `integrator_fee` accrues to the integrator and the `loktin_fee` to the fee recipient, and each is paid when the recipient calls `claim_fees`, which emits `fees_claimed`.
 
 `skim` equals `cap_trimmed + shortfall + to_balance + to_goal`. A skim of zero moves nothing and `saved` is still emitted (P14). In `pay_and_save`, `paid` comes just before `saved`.
 

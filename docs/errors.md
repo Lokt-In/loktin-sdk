@@ -40,6 +40,7 @@ Codes 100 to 199 belong to the Target Savings contract. It also returns the shar
 | 117  | `ConfigMissing`           | The contract's configuration is missing from storage.                |
 | 118  | `InvalidIntegrator`       | The integrator is this contract.                                     |
 | 119  | `InvalidFeeRecipient`     | The fee recipient is this contract.                                  |
+| 120  | `NothingToClaim`          | The recipient has no accrued fees to claim.                          |
 
 ## Spend & Save codes
 
@@ -62,6 +63,7 @@ Codes 200 to 299 belong to the Spend & Save contract. It also returns the shared
 | 212  | `PaymentShortfall`        | The user's balance is below the payment.                                                               |
 | 213  | `YieldSourceNotSupported` | A yield source was supplied, and none is supported in this version.                                    |
 | 214  | `ConfigMissing`           | The contract's configuration is missing from storage.                                                  |
+| 215  | `NothingToClaim`          | The recipient has no accrued fees to claim.                                                            |
 
 ## OpenZeppelin codes
 
