@@ -7,7 +7,7 @@ A TypeScript SDK for Loktin's savings contracts on Stellar. It has no user inter
 
 ## Status
 
-- This is the preview release, `0.2.0`. Its API may change before `1.0.0`.
+- This is the preview release, `0.3.0`. Its API may change before `1.0.0`.
 - It works on Stellar testnet only. The contracts have no mainnet deployment, and the SDK refuses the public network.
 - It is designed for browsers and Node. Browser support will be confirmed with the reference app, and is not claimed yet.
 
@@ -68,6 +68,8 @@ await targetSavings.renewAllowance(goal.result);
 ```
 
 `creationBreakdown` shows what an early withdrawal of the whole target would pay out, before the user signs. `allowanceStatus` says whether the next scheduled deposit would be short on allowance.
+
+Goal ids are not sequential, and there is no paging by number. Use the id that `createGoal` returns. To find goals, call `userGoals(owner)` for each of your own users, at most 20 goals each, or read the contract's `goal_created` and `goal_closed` events into your own store.
 
 ## Spend & Save
 

@@ -29,7 +29,9 @@ describe('reads', () => {
   it('make exactly one server call, and decode the result', async () => {
     server.simulations.push(simulationSuccess(ScVal.scvU64(42n)));
     const loktin = createLoktin({ network: 'testnet', server });
-    await expect(loktin.read('target-savings', 'next_id')).resolves.toBe(42n);
+    await expect(loktin.read('target-savings', 'min_cadence')).resolves.toBe(
+      42n,
+    );
     expect(server.methods()).toEqual(['simulateTransaction']);
   });
 
@@ -70,7 +72,7 @@ describe('reads', () => {
     );
     server.simulations.push(simulationSuccess(ScVal.scvU64(1n)));
     const loktin = createLoktin({ network: 'testnet', server });
-    const result = loktin.read('target-savings', 'next_id');
+    const result = loktin.read('target-savings', 'min_cadence');
 
     await vi.advanceTimersByTimeAsync(0);
     expect(server.calls).toHaveLength(1);
@@ -90,7 +92,7 @@ describe('reads', () => {
     server.simulations.push(new Error('fetch failed'));
     const loktin = createLoktin({ network: 'testnet', server });
     const result = loktin
-      .read('target-savings', 'next_id')
+      .read('target-savings', 'min_cadence')
       .catch((error: unknown) => error);
     await vi.advanceTimersByTimeAsync(10_000);
     const error = await result;

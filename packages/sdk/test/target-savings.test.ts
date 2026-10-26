@@ -241,7 +241,6 @@ describe('Target Savings reads', () => {
             retvalOf('target-savings', 'goal', RAW_GOAL),
           );
         case 'user_goals':
-        case 'open_goals':
           return simulationSuccess(
             retvalOf('target-savings', call.method, [RAW_GOAL]),
           );
@@ -253,25 +252,19 @@ describe('Target Savings reads', () => {
     await expect(targetSavings.goal(4n)).resolves.toEqual(GOAL);
     await expect(targetSavings.userGoals()).resolves.toEqual([GOAL]);
     await expect(targetSavings.userGoals(INTEGRATOR)).resolves.toEqual([GOAL]);
-    await expect(targetSavings.openGoals(1n, 50)).resolves.toEqual([GOAL]);
 
     const calls = server.invocations();
     expect(calls.map((call) => call.method)).toEqual([
       'goal',
       'user_goals',
       'user_goals',
-      'open_goals',
     ]);
     expect(xdrOf(calls[1]?.args ?? [])).toEqual(xdrOf([address(USER)]));
     expect(xdrOf(calls[2]?.args ?? [])).toEqual(xdrOf([address(INTEGRATOR)]));
-    expect(xdrOf(calls[3]?.args ?? [])).toEqual(
-      xdrOf([ScVal.scvU64(1n), ScVal.scvU32(50)]),
-    );
   });
 
   it('read the settings, one call each', async () => {
     const answers: Record<string, ScVal> = {
-      next_id: ScVal.scvU64(12n),
       preview_withdraw: retvalOf(
         'target-savings',
         'preview_withdraw',
@@ -288,7 +281,6 @@ describe('Target Savings reads', () => {
       return retval === undefined ? undefined : simulationSuccess(retval);
     };
     const targetSavings = module();
-    await expect(targetSavings.nextId()).resolves.toBe(12n);
     await expect(targetSavings.previewWithdraw(4n)).resolves.toEqual(
       WITHDRAWAL,
     );
@@ -297,7 +289,7 @@ describe('Target Savings reads', () => {
     await expect(targetSavings.feeRecipient()).resolves.toBe(INTEGRATOR);
     await expect(targetSavings.minCadence()).resolves.toBe(86_400);
     await expect(targetSavings.paused()).resolves.toBe(false);
-    expect(server.methods()).toEqual(Array(7).fill('simulateTransaction'));
+    expect(server.methods()).toEqual(Array(6).fill('simulateTransaction'));
     expect(server.invocations().map((call) => call.method)).toEqual(
       Object.keys(answers),
     );
@@ -337,8 +329,8 @@ describe('the read adapter', () => {
       Promise.resolve({ ...GOAL, id: goalId }),
     );
     server.simulateBy = (call) =>
-      call.method === 'next_id'
-        ? simulationSuccess(ScVal.scvU64(12n))
+      call.method === 'min_cadence'
+        ? simulationSuccess(ScVal.scvU64(86_400n))
         : undefined;
     const targetSavings = new TargetSavings(
       loktinOn(server, { targetSavings: { goal } }),
@@ -348,9 +340,9 @@ describe('the read adapter', () => {
     expect(goal).toHaveBeenCalledWith(7n);
     expect(server.calls).toEqual([]);
 
-    await expect(targetSavings.nextId()).resolves.toBe(12n);
+    await expect(targetSavings.minCadence()).resolves.toBe(86_400);
     expect(server.invocations().map((call) => call.method)).toEqual([
-      'next_id',
+      'min_cadence',
     ]);
   });
 
@@ -415,10 +407,8 @@ describe('Target Savings checks before any network call', () => {
     expect(server.calls).toEqual([]);
   });
 
-  it('refuse a deposit that is not above zero, and a page outside 1 to 50', async () => {
+  it('refuse a deposit that is not above zero', async () => {
     await refused(() => module().deposit(4n, 0n), 'InvalidDeposit');
-    await refused(() => module().openGoals(1n, 51), 'InvalidLimit');
-    await refused(() => module().openGoals(1n, 0), 'InvalidLimit');
   });
 });
 

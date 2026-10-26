@@ -53,8 +53,6 @@ export interface GoalWithdrawal {
 export interface TargetSavingsReadAdapter {
   goal?(goalId: bigint): Promise<Goal>;
   userGoals?(owner: string): Promise<readonly Goal[]>;
-  openGoals?(fromId: bigint, limit: number): Promise<readonly Goal[]>;
-  nextId?(): Promise<bigint>;
   previewWithdraw?(goalId: bigint): Promise<GoalWithdrawal>;
   token?(): Promise<string>;
   loktinFeeBps?(): Promise<number>;
