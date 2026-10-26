@@ -22,15 +22,15 @@ use stellar_contract_utils::upgradeable::{self as upgradeable, Upgradeable};
 
 pub use crate::error::Error;
 pub use crate::events::{
-    Enrolled, EnrollmentClosed, FeeRecipientSet, LoktinFeeSet, Paid, Saved, SettingsUpdated,
-    Upgraded, Withdrawn,
+    Enrolled, EnrollmentClosed, FeeRecipientSet, FeesClaimed, LoktinFeeSet, Paid, Saved,
+    SettingsUpdated, Upgraded, Withdrawn,
 };
 pub use crate::storage::{
     DataKey, DayChange, Destination, Enrollment, EnrollmentRecord, SkimSettings, MAX_ENROLLMENTS,
     MAX_PERCENT_BPS, MIN_PERCENT_BPS,
 };
 
-contractmeta!(key = "binver", val = "0.1.0");
+contractmeta!(key = "binver", val = "0.2.0");
 
 /// How a skim is worked out from a spend, before the wallet is checked
 /// (P12, P13).
@@ -328,7 +328,10 @@ impl SpendSave {
     }
 
     /// Withdraws `amount` from the balance inside the withdrawal window
-    /// (P16, S9, R2). Never blocked by pause (C4).
+    /// (P16, S9, R2) and pays the user's share. The integrator fee accrues
+    /// to the integrator, and the Loktin fee to the current fee recipient,
+    /// for each to claim with `claim_fees` (W63). Never blocked by pause
+    /// (C4).
     pub fn withdraw(
         e: &Env,
         user: Address,
@@ -351,18 +354,17 @@ impl SpendSave {
             .ok_or(Error::Overflow)?;
         enrollment.shares = enrollment.principal;
         storage::save_enrollment(e, &enrollment);
+        storage::add_accrued_fees(e, &integrator, withdrawal.integrator_fee)?;
+        storage::add_accrued_fees(e, &config.fee_recipient, withdrawal.loktin_fee)?;
         ttl::extend_instance(e);
 
-        let token = token::TokenClient::new(e, &config.token);
-        let contract = e.current_contract_address();
-        for (to, value) in [
-            (&user, withdrawal.to_user),
-            (&integrator, withdrawal.integrator_fee),
-            (&config.fee_recipient, withdrawal.loktin_fee),
-        ] {
-            if value > 0 {
-                token.transfer(&contract, to, &value);
-            }
+        // The only transfer: no recipient of fees can block the user (S8).
+        if withdrawal.to_user > 0 {
+            token::TokenClient::new(e, &config.token).transfer(
+                &e.current_contract_address(),
+                &user,
+                &withdrawal.to_user,
+            );
         }
 
         Withdrawn {
@@ -394,6 +396,32 @@ impl SpendSave {
 
         EnrollmentClosed { user, integrator }.publish(e);
         Ok(())
+    }
+
+    /// Pays out every fee accrued to `recipient` and returns the amount
+    /// (W63). Signed by the recipient. Never blocked by pause (C4).
+    pub fn claim_fees(e: &Env, recipient: Address) -> Result<i128, Error> {
+        recipient.require_auth();
+        let config = storage::config(e)?;
+        let amount = storage::take_accrued_fees(e, &recipient);
+        if amount == 0 {
+            return Err(Error::NothingToClaim);
+        }
+        ttl::extend_instance(e);
+
+        token::TokenClient::new(e, &config.token).transfer(
+            &e.current_contract_address(),
+            &recipient,
+            &amount,
+        );
+
+        FeesClaimed { recipient, amount }.publish(e);
+        Ok(amount)
+    }
+
+    /// Returns the fees accrued to `recipient` and not yet claimed (W63).
+    pub fn accrued_fees(e: &Env, recipient: Address) -> i128 {
+        storage::accrued_fees(e, &recipient)
     }
 
     /// Returns an enrolment as stored.

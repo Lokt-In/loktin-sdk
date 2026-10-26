@@ -129,3 +129,31 @@ fn archived_goal_is_restored_and_usable() {
     assert_eq!(s.contract.goal(&id).principal, 1);
     assert_eq!(entry_ttl(&s, &DataKey::Goal(id)), max_ttl(&s));
 }
+
+/// Deposits 1,000 into a new goal and withdraws it, which accrues the 1%
+/// Loktin fee, 10, to the fee recipient.
+fn accrue(s: &Setup) {
+    s.mint(&s.owner, 1_000);
+    let id = s.create_default(WithdrawalRule::Penalty(0));
+    s.contract.deposit(&s.owner, &id, &1_000);
+    s.contract.withdraw(&s.owner, &id);
+}
+
+#[test]
+fn accrued_fees_are_renewed_on_accrual_and_restored_after_archiving() {
+    let s = common::setup_with_fee(100);
+    s.env.mock_all_auths();
+    let key = DataKey::AccruedFees(s.fee_recipient.clone());
+    accrue(&s);
+    assert_eq!(entry_ttl(&s, &key), max_ttl(&s));
+    age_below_threshold(&s);
+    assert!(entry_ttl(&s, &key) < TTL_THRESHOLD);
+    accrue(&s);
+    assert_eq!(entry_ttl(&s, &key), max_ttl(&s));
+    // Past its last live ledger the entry is archived, never deleted, and
+    // the next call restores it with the fees intact.
+    s.advance_ledgers(entry_ttl(&s, &key) + 1);
+    assert_eq!(s.contract.accrued_fees(&s.fee_recipient), 20);
+    assert_eq!(s.contract.claim_fees(&s.fee_recipient), 20);
+    assert_eq!(s.token.balance(&s.fee_recipient), 20);
+}

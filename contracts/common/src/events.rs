@@ -16,6 +16,15 @@ pub struct FeeRecipientSet {
     pub fee_recipient: Address,
 }
 
+/// Fees accrued to `recipient` were paid out to it (W63).
+#[contractevent]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FeesClaimed {
+    #[topic]
+    pub recipient: Address,
+    pub amount: i128,
+}
+
 /// The contract code is being replaced.
 #[contractevent]
 #[derive(Clone, Debug, PartialEq, Eq)]

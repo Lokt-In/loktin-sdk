@@ -28,13 +28,26 @@ fn with_fees(rule: WithdrawalRule, principal: i128) -> (Setup<'static>, u64) {
     (s, id)
 }
 
+/// Only the owner was paid: the integrator and the fee recipient received
+/// nothing, their fees accrued, and the contract still holds them (W63).
+fn assert_accrued(s: &Setup, recipient: &Address, to_integrator: i128, loktin_fee: i128) {
+    assert_eq!(s.token.balance(&s.integrator), 0);
+    assert_eq!(s.token.balance(recipient), 0);
+    assert_eq!(s.contract.accrued_fees(&s.integrator), to_integrator);
+    assert_eq!(s.contract.accrued_fees(recipient), loktin_fee);
+    assert_eq!(
+        s.token.balance(&s.contract.address),
+        to_integrator + loktin_fee
+    );
+}
+
 fn assert_closed(s: &Setup, id: u64) {
     assert_eq!(s.contract.try_goal(&id), Err(Ok(Error::GoalNotFound)));
     assert!(s.contract.user_goals(&s.owner).iter().all(|g| g.id != id));
 }
 
 #[test]
-fn early_withdrawal_pays_penalty_and_fees_and_emits_events() {
+fn early_withdrawal_accrues_penalty_and_fees_and_emits_events() {
     let (s, id) = with_fees(WithdrawalRule::Penalty(1_000), 5_000);
     let expected = Withdrawal {
         amount: 5_000,
@@ -66,9 +79,7 @@ fn early_withdrawal_pays_penalty_and_fees_and_emits_events() {
         ]
     );
     assert_eq!(s.token.balance(&s.owner), 4_400);
-    assert_eq!(s.token.balance(&s.integrator), 550);
-    assert_eq!(s.token.balance(&s.fee_recipient), 50);
-    assert_eq!(s.token.balance(&s.contract.address), 0);
+    assert_accrued(&s, &s.fee_recipient, 550, 50);
     assert_closed(&s, id);
 }
 
@@ -78,7 +89,7 @@ fn no_penalty_once_target_is_reached() {
     let w = s.contract.withdraw(&s.owner, &id);
     assert_eq!(w.penalty, 0);
     assert_eq!(w.to_user, 9_800);
-    assert_eq!(s.token.balance(&s.integrator), 100);
+    assert_accrued(&s, &s.fee_recipient, 100, 100);
 }
 
 #[test]
@@ -89,6 +100,7 @@ fn penalty_applies_one_second_before_deadline_and_not_at_it() {
     s.set_time(START + 10 * WEEK);
     assert_eq!(s.contract.preview_withdraw(&id).penalty, 0);
     assert_eq!(s.contract.withdraw(&s.owner, &id).to_user, 4_900);
+    assert_accrued(&s, &s.fee_recipient, 50, 50);
 }
 
 #[test]
@@ -107,6 +119,7 @@ fn lock_rule_releases_at_deadline() {
     let (s, id) = with_fees(WithdrawalRule::Lock, 5_000);
     s.set_time(START + 10 * WEEK);
     assert_eq!(s.contract.withdraw(&s.owner, &id).to_user, 4_900);
+    assert_accrued(&s, &s.fee_recipient, 50, 50);
     assert_closed(&s, id);
 }
 
@@ -114,6 +127,7 @@ fn lock_rule_releases_at_deadline() {
 fn lock_rule_releases_at_target() {
     let (s, id) = with_fees(WithdrawalRule::Lock, 10_000);
     assert_eq!(s.contract.withdraw(&s.owner, &id).to_user, 9_800);
+    assert_accrued(&s, &s.fee_recipient, 100, 100);
 }
 
 #[test]
@@ -130,6 +144,8 @@ fn empty_goal_closes_with_no_transfers_even_when_locked() {
     assert_eq!(s.contract.withdraw(&s.owner, &id), zero);
     // Only this contract's own events: no token transfer happened.
     assert_eq!(s.env.events().all().events().len(), 2);
+    // Nothing accrued, so no fee entry was created.
+    assert_accrued(&s, &s.fee_recipient, 0, 0);
     assert_closed(&s, id);
 }
 
@@ -144,6 +160,7 @@ fn zero_transfers_are_skipped() {
     // Withdrawn, goal_closed and one token transfer event.
     assert_eq!(s.env.events().all().events().len(), 3);
     assert_eq!(s.token.balance(&s.owner), 10_000);
+    assert_accrued(&s, &s.fee_recipient, 0, 0);
 }
 
 #[test]
@@ -160,15 +177,17 @@ fn rounding_favours_the_owner() {
             to_user: 882,
         }
     );
+    assert_accrued(&s, &s.fee_recipient, 108, 9);
 }
 
 #[test]
-fn loktin_fee_goes_to_current_recipient() {
+fn loktin_fee_accrues_to_current_recipient() {
     let (s, id) = with_fees(WithdrawalRule::Penalty(0), 5_000);
     let new_recipient = Address::generate(&s.env);
     s.contract.set_fee_recipient(&new_recipient, &s.fee_admin);
     s.contract.withdraw(&s.owner, &id);
-    assert_eq!(s.token.balance(&new_recipient), 50);
+    assert_accrued(&s, &new_recipient, 50, 50);
+    assert_eq!(s.contract.accrued_fees(&s.fee_recipient), 0);
     assert_eq!(s.token.balance(&s.fee_recipient), 0);
 }
 

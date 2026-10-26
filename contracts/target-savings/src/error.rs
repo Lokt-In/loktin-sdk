@@ -62,6 +62,8 @@ pub enum Error {
     InvalidIntegrator = 118,
     /// The fee recipient is this contract.
     InvalidFeeRecipient = 119,
+    /// The recipient has no accrued fees to claim.
+    NothingToClaim = 120,
 }
 
 impl From<CommonError> for Error {

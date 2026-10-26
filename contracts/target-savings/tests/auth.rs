@@ -436,3 +436,74 @@ fn grant_role_is_authorized_by_the_admin_and_refused_to_others() {
     }
     assert_eq!(s.contract.has_role(&stranger, &roles::UPGRADER), None);
 }
+
+/// Deposits `amount` with a signed `deposit`, including its transfer.
+fn deposit_signed(s: &Setup, id: u64, amount: i128) {
+    s.env.mock_auths(&[MockAuth {
+        address: &s.owner,
+        invoke: &MockAuthInvoke {
+            contract: &s.contract.address,
+            fn_name: "deposit",
+            args: (&s.owner, id, amount).into_val(&s.env),
+            sub_invokes: &[MockAuthInvoke {
+                contract: &s.token.address,
+                fn_name: "transfer",
+                args: (&s.owner, &s.contract.address, amount).into_val(&s.env),
+                sub_invokes: &[],
+            }],
+        },
+    }]);
+    s.contract.deposit(&s.owner, &id, &amount);
+}
+
+/// Accrues 1% of 5,000 to the fee recipient, with every call signed.
+fn accrue_signed(s: &Setup) {
+    mint(s, &s.owner, 5_000);
+    let id = create_signed(s);
+    deposit_signed(s, id, 5_000);
+    // The lock rule releases at the deadline.
+    s.set_time(START + 10 * WEEK);
+    sign(s, &s.owner, "withdraw", (&s.owner, id).into_val(&s.env));
+    s.contract.withdraw(&s.owner, &id);
+    assert_eq!(s.contract.accrued_fees(&s.fee_recipient), 50);
+}
+
+#[test]
+fn claim_fees_is_authorized_by_the_recipient_only() {
+    let s = common::setup_with_fee(100);
+    accrue_signed(&s);
+    let args: Vec<Val> = (&s.fee_recipient,).into_val(&s.env);
+    sign(&s, &s.fee_recipient, "claim_fees", args.clone());
+    assert_eq!(s.contract.claim_fees(&s.fee_recipient), 50);
+    // The payout is the contract's own transfer, so no other signature.
+    assert_eq!(
+        s.env.auths(),
+        std::vec![(
+            s.fee_recipient.clone(),
+            invocation(&s, &s.contract.address, "claim_fees", args, std::vec![])
+        )]
+    );
+    assert_eq!(s.token.balance(&s.fee_recipient), 50);
+}
+
+#[test]
+fn claim_fees_by_a_stranger_is_refused() {
+    let s = common::setup_with_fee(100);
+    accrue_signed(&s);
+    let stranger = Address::generate(&s.env);
+    sign(
+        &s,
+        &stranger,
+        "claim_fees",
+        (&s.fee_recipient,).into_val(&s.env),
+    );
+    assert!(refused_auth(s.contract.try_claim_fees(&s.fee_recipient)));
+    assert_eq!(s.contract.accrued_fees(&s.fee_recipient), 50);
+    assert_eq!(s.token.balance(&s.fee_recipient), 0);
+    // A stranger claiming as themselves has nothing accrued.
+    sign(&s, &stranger, "claim_fees", (&stranger,).into_val(&s.env));
+    assert_eq!(
+        s.contract.try_claim_fees(&stranger),
+        Err(Ok(Error::NothingToClaim))
+    );
+}

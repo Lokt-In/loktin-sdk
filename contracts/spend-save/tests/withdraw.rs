@@ -24,6 +24,20 @@ fn funded<'a>() -> Setup<'a> {
     s
 }
 
+/// Only the user was paid: the integrator and the fee recipient received
+/// nothing, their fees accrued, and the contract still holds them alongside
+/// the remaining balance (W63).
+fn assert_accrued(s: &Setup, recipient: &Address, integrator_fee: i128, loktin_fee: i128) {
+    assert_eq!(s.token.balance(&s.integrator), 0);
+    assert_eq!(s.token.balance(recipient), 0);
+    assert_eq!(s.contract.accrued_fees(&s.integrator), integrator_fee);
+    assert_eq!(s.contract.accrued_fees(recipient), loktin_fee);
+    assert_eq!(
+        s.token.balance(&s.contract.address),
+        s.principal() + integrator_fee + loktin_fee
+    );
+}
+
 #[test]
 fn withdraws_with_fees_and_emits_event() {
     let s = funded();
@@ -52,12 +66,10 @@ fn withdraws_with_fees_and_emits_event() {
         .to_xdr(&s.env, &s.contract.address)]
     );
     assert_eq!(s.token.balance(&s.user) - before, 588);
-    assert_eq!(s.token.balance(&s.integrator), 6);
-    assert_eq!(s.token.balance(&s.fee_recipient), 6);
     let e = s.contract.enrollment(&s.user, &s.integrator);
     assert_eq!(e.principal, 400);
     assert_eq!(e.shares, 400);
-    assert_eq!(s.token.balance(&s.contract.address), 400);
+    assert_accrued(&s, &s.fee_recipient, 6, 6);
 }
 
 #[test]
@@ -106,7 +118,8 @@ fn amount_bounds() {
     s.contract.withdraw(&s.user, &s.integrator, &1);
     s.contract.withdraw(&s.user, &s.integrator, &999);
     assert_eq!(s.principal(), 0);
-    assert_eq!(s.token.balance(&s.contract.address), 0);
+    // 1% of 1 rounds down to 0; 1% of 999 is 9 each.
+    assert_accrued(&s, &s.fee_recipient, 9, 9);
 }
 
 #[test]
@@ -119,15 +132,18 @@ fn withdraw_rounding_favours_the_user_and_skips_zero_transfers() {
     assert_eq!(w.to_user, 99);
     // `withdrawn` and one token transfer.
     assert_eq!(s.env.events().all().events().len(), 2);
+    assert_accrued(&s, &s.fee_recipient, 0, 0);
 }
 
 #[test]
-fn loktin_fee_goes_to_the_current_recipient() {
+fn loktin_fee_accrues_to_the_current_recipient() {
     let s = funded();
     let recipient = Address::generate(&s.env);
     s.contract.set_fee_recipient(&recipient, &s.fee_admin);
     s.contract.withdraw(&s.user, &s.integrator, &1_000);
-    assert_eq!(s.token.balance(&recipient), 10);
+    assert_accrued(&s, &recipient, 10, 10);
+    assert_eq!(s.contract.accrued_fees(&s.fee_recipient), 0);
+    assert_eq!(s.token.balance(&s.fee_recipient), 0);
 }
 
 #[test]

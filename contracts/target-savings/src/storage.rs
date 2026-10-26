@@ -6,6 +6,7 @@ use soroban_sdk::{contracttype, Address, Env, Vec};
 use crate::error::Error;
 
 /// Schema version recorded in instance storage.
+// Stays 1: an upgrade never changes it (docs/decisions/0002-accrued-fees.md).
 pub const SCHEMA_VERSION: u32 = 1;
 
 /// Most open goals one owner may hold (P10).
@@ -50,6 +51,9 @@ pub enum DataKey {
     Goal(u64),
     /// Persistent: the ids of an owner's open goals.
     UserGoals(Address),
+    /// Persistent: the fees accrued to one recipient and not yet claimed
+    /// (W63). Never temporary, so an untouched entry is archived, not lost.
+    AccruedFees(Address),
 }
 
 pub fn config(e: &Env) -> Result<Config, Error> {
@@ -111,4 +115,39 @@ pub fn set_user_goal_ids(e: &Env, owner: &Address, ids: &Vec<u64>) {
         e.storage().persistent().set(&key, ids);
         ttl::extend_persistent(e, &key);
     }
+}
+
+/// Returns the fees accrued to `recipient` and not yet claimed, or 0.
+pub fn accrued_fees(e: &Env, recipient: &Address) -> i128 {
+    e.storage()
+        .persistent()
+        .get(&DataKey::AccruedFees(recipient.clone()))
+        .unwrap_or(0)
+}
+
+/// Adds `amount` to the fees accrued to `recipient` and extends the entry's
+/// TTL. Writes nothing for an amount of 0.
+pub fn add_accrued_fees(e: &Env, recipient: &Address, amount: i128) -> Result<(), Error> {
+    if amount == 0 {
+        return Ok(());
+    }
+    let total = accrued_fees(e, recipient)
+        .checked_add(amount)
+        .ok_or(Error::Overflow)?;
+    let key = DataKey::AccruedFees(recipient.clone());
+    e.storage().persistent().set(&key, &total);
+    ttl::extend_persistent(e, &key);
+    Ok(())
+}
+
+/// Removes the fees accrued to `recipient` and returns them, or 0 when there
+/// are none.
+pub fn take_accrued_fees(e: &Env, recipient: &Address) -> i128 {
+    let amount = accrued_fees(e, recipient);
+    if amount != 0 {
+        e.storage()
+            .persistent()
+            .remove(&DataKey::AccruedFees(recipient.clone()));
+    }
+    amount
 }

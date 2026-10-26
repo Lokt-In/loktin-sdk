@@ -2,7 +2,7 @@
 
 use soroban_sdk::{contractevent, contracttype, Address};
 
-pub use loktin_common::events::{FeeRecipientSet, LoktinFeeSet, Upgraded};
+pub use loktin_common::events::{FeeRecipientSet, FeesClaimed, LoktinFeeSet, Upgraded};
 
 use crate::storage::WithdrawalRule;
 
