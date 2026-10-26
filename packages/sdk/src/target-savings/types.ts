@@ -61,6 +61,7 @@ export interface TargetSavingsReadAdapter {
   feeRecipient?(): Promise<string>;
   minCadence?(): Promise<number>;
   paused?(): Promise<boolean>;
+  accruedFees?(recipient: string): Promise<bigint>;
 }
 
 // The shapes the contract spec decodes to.

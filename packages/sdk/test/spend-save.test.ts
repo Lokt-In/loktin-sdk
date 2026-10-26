@@ -1,14 +1,21 @@
 import { Address, StrKey, nativeToScVal } from '@stellar/stellar-sdk/base';
 import { ScMapEntry, ScVal } from '@stellar/stellar-sdk/xdr';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InvalidInputError, TESTNET } from '../src/index.js';
+import { ContractError, InvalidInputError, TESTNET } from '../src/index.js';
 import {
   type EnrollInput,
   type Enrollment,
   SpendSave,
 } from '../src/spend-save/index.js';
 import type { RawEnrollment } from '../src/spend-save/types.js';
-import { FakeServer, USER, simulationSuccess } from './fake-server.js';
+import {
+  FakeServer,
+  USER,
+  callEvent,
+  errorEvent,
+  simulationFailure,
+  simulationSuccess,
+} from './fake-server.js';
 import { loktinOn, queueWrite, retvalOf, settle, xdrOf } from './modules.js';
 
 const SS = TESTNET.contracts.spendSave;
@@ -382,5 +389,88 @@ describe('Spend & Save checks before any network call', () => {
     await refused(() => module().payAndSave(SS, 10n), 'InvalidPayee');
     await refused(() => module().saveForSpend(0n), 'InvalidAmount');
     await refused(() => module().withdraw(0n), 'InvalidAmount');
+  });
+});
+
+describe('accrued fees', () => {
+  const RECIPIENT = StrKey.encodeContract(new Uint8Array(32).fill(6));
+
+  it('claimFees claims for publicKey and decodes the amount', async () => {
+    queueWrite(server, retvalOf('spend-save', 'claim_fees', 550n));
+    const claimed = await settle(module().claimFees());
+    expect(claimed).toMatchObject({ result: 550n });
+    expect((claimed as { result: unknown }).result).toBeTypeOf('bigint');
+    const [call] = server.invocations();
+    expect(call?.contractId).toBe(SS);
+    expect(call?.method).toBe('claim_fees');
+    expect(xdrOf(call?.args ?? [])).toEqual(xdrOf([address(USER)]));
+  });
+
+  it('maps NothingToClaim to CONTRACT_ERROR 215', async () => {
+    server.simulations.push(
+      simulationFailure('HostError: Error(Contract, #215)', [
+        callEvent(SS),
+        errorEvent(SS, 215),
+      ]),
+    );
+    const error = await settle(module().claimFees());
+    expect(error).toBeInstanceOf(ContractError);
+    expect(error).toMatchObject({
+      code: 'CONTRACT_ERROR',
+      contract: 'spend-save',
+      number: 215,
+      errorName: 'NothingToClaim',
+      description: 'The recipient has no accrued fees to claim.',
+    });
+    expect(server.methods()).not.toContain('sendTransaction');
+  });
+
+  it('accruedFees reads for the integrator by default, or for a given recipient', async () => {
+    server.simulateBy = (call) =>
+      call.method === 'accrued_fees' ? simulationSuccess(i128(75n)) : undefined;
+    const spendSave = module();
+    await expect(spendSave.accruedFees()).resolves.toBe(75n);
+    await expect(spendSave.accruedFees(RECIPIENT)).resolves.toBe(75n);
+    const calls = server.invocations();
+    expect(calls.map((call) => call.method)).toEqual([
+      'accrued_fees',
+      'accrued_fees',
+    ]);
+    expect(xdrOf(calls[0]?.args ?? [])).toEqual(xdrOf([address(INTEGRATOR)]));
+    expect(xdrOf(calls[1]?.args ?? [])).toEqual(xdrOf([address(RECIPIENT)]));
+  });
+
+  it('accruedFees refuses an invalid recipient before any server call', async () => {
+    for (const recipient of ['G', 'not an address', PAYEE_M]) {
+      await expect(module().accruedFees(recipient)).rejects.toThrow(
+        InvalidInputError,
+      );
+    }
+    expect(server.calls).toEqual([]);
+  });
+
+  it('accruedFees uses the read adapter when it has the method', async () => {
+    const accruedFees = vi.fn(() => Promise.resolve(12n));
+    const spendSave = new SpendSave(
+      loktinOn(server, { spendSave: { accruedFees } }),
+      OPTIONS,
+    );
+    await expect(spendSave.accruedFees()).resolves.toBe(12n);
+    expect(accruedFees).toHaveBeenCalledWith(INTEGRATOR);
+    expect(server.calls).toEqual([]);
+  });
+
+  it('claimFees never uses the read adapter', async () => {
+    const accruedFees = vi.fn(() => Promise.resolve(12n));
+    queueWrite(server, retvalOf('spend-save', 'claim_fees', 5n));
+    const spendSave = new SpendSave(
+      loktinOn(server, { spendSave: { accruedFees } }),
+      OPTIONS,
+    );
+    await settle(spendSave.claimFees());
+    expect(accruedFees).not.toHaveBeenCalled();
+    expect(server.invocations().map((call) => call.method)).toEqual([
+      'claim_fees',
+    ]);
   });
 });

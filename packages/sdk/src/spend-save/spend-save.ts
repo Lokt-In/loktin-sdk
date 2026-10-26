@@ -4,6 +4,7 @@ import { InvalidInputError } from '../errors.js';
 import type { Loktin, WriteResult } from '../loktin.js';
 import type { TimeWindow } from '../time.js';
 import {
+  checkAddress,
   checkIntegrator,
   checkPositive,
   checkU64,
@@ -209,7 +210,10 @@ export class SpendSave {
 
   /**
    * Withdraws `amount` from the balance. The chain refuses it outside the
-   * withdrawal window (P16, S9, R2).
+   * withdrawal window (P16, S9, R2). The user receives `toUser`. The
+   * integrator fee accrues to the integrator, and the Loktin fee to
+   * Loktin's fee recipient, who each claim them with
+   * {@link SpendSave.claimFees}.
    */
   async withdraw(amount: bigint): Promise<WriteResult<SpendSaveWithdrawal>> {
     const user = writerOf(this.loktin.config);
@@ -310,6 +314,34 @@ export class SpendSave {
       : this.chain.feeRecipient();
   }
 
+  /**
+   * Pays out every fee accrued to `publicKey` and returns the amount
+   * (W63). The call acts for `publicKey`, so it needs only the configured
+   * signer. An integrator claims by creating the SDK with its own
+   * `publicKey` and signer, and Loktin's fee recipient claims the same way.
+   * With nothing accrued, the contract refuses it with `NothingToClaim`.
+   * Never uses the read adapter.
+   */
+  async claimFees(): Promise<WriteResult<bigint>> {
+    const recipient = writerOf(this.loktin.config);
+    return this.loktin.write<bigint>('spend-save', 'claim_fees', { recipient });
+  }
+
+  /**
+   * Returns the fees accrued to `recipient` and not yet claimed (W63).
+   * `recipient` defaults to the module's integrator.
+   */
+  async accruedFees(recipient?: string): Promise<bigint> {
+    const address =
+      recipient === undefined
+        ? this.integrator
+        : checkAddress(recipient, 'recipient');
+    const adapter = this.adapter;
+    return adapter?.accruedFees
+      ? adapter.accruedFees(address)
+      : this.chain.accruedFees(address);
+  }
+
   /** Returns whether Spend & Save is paused. */
   async paused(): Promise<boolean> {
     const adapter = this.adapter;
@@ -348,5 +380,6 @@ function chainReads(loktin: Loktin): Required<SpendSaveReadAdapter> {
     loktinFeeBps: () => read<number>('loktin_fee_bps'),
     feeRecipient: () => read<string>('fee_recipient'),
     paused: () => read<boolean>('paused'),
+    accruedFees: (recipient) => read<bigint>('accrued_fees', { recipient }),
   };
 }
