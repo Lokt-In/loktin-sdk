@@ -126,16 +126,16 @@ for (const savings of [
 
 Every error the SDK throws is a `LoktinError` with a stable `code`:
 
-| Code                     | Meaning                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| `INVALID_INPUT`          | An input was refused before any network call.                                                 |
-| `CONTRACT_ERROR`         | Target Savings or Spend & Save refused the call with one of its documented codes.             |
-| `TOKEN_ERROR`            | The token contract refused the call, for example for a low balance or a missing trustline.    |
-| `UNKNOWN_CONTRACT_ERROR` | A contract error the SDK cannot name.                                                         |
-| `SIGNER_REFUSED`         | The wallet refused to sign, or failed while signing.                                          |
-| `NETWORK`                | The RPC could not be reached, or answered with an error.                                      |
-| `PENDING`                | The transaction was sent and its outcome is not known yet. Look it up by hash; do not resend. |
-| `TRANSACTION_FAILED`     | The transaction was sent and failed.                                                          |
+| Code                     | Meaning                                                                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_INPUT`          | An input was refused before any network call.                                                                                                  |
+| `CONTRACT_ERROR`         | Target Savings or Spend & Save refused the call with one of its documented codes.                                                              |
+| `TOKEN_ERROR`            | The token contract refused the call, for example for a low balance or a missing trustline.                                                     |
+| `UNKNOWN_CONTRACT_ERROR` | A contract error the SDK cannot name.                                                                                                          |
+| `SIGNER_REFUSED`         | The wallet refused to sign, or failed while signing.                                                                                           |
+| `NETWORK`                | The RPC could not be reached, or answered with an error, after the SDK's retries: 3 for a read, and 3 for each step of a write before signing. |
+| `PENDING`                | The transaction was sent and its outcome is not known yet. Look it up by hash; do not resend.                                                  |
+| `TRANSACTION_FAILED`     | The transaction was sent and failed.                                                                                                           |
 
 Each error is reported against the contract that raised it. The contract codes are listed in [docs/errors.md](https://github.com/Lokt-In/loktin-sdk/blob/main/docs/errors.md).
 

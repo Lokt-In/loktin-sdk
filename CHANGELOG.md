@@ -6,6 +6,7 @@
 
 - Breaking: `nextId` and `openGoals` are removed from the Target Savings module and its read adapter. Goal ids are no longer sequential.
 - Find goals with `userGoals(owner)` for your own users, or from the `goal_created` and `goal_closed` events.
+- A write now retries its network check, account lookup and simulation on network errors, as reads do. Nothing is signed or sent before these steps.
 
 ## contracts 0.3.0
 

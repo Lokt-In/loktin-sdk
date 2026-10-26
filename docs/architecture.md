@@ -462,12 +462,13 @@ Decisions:
   - Archived entries are restored automatically through simulation (section 6, S1). The contract client's `restore` option stays off, so the user is never asked to sign a separate restore transaction. If a restore step is ever reported, the SDK returns a typed error.
   - On the first write, the SDK confirms that the RPC's network passphrase matches the configured network.
   - Local validation repeats every contract check that needs no chain data, such as amounts, rates, days and deadlines, and fails before any network call. Checks that need chain data, such as the minimum cadence, the open-goal limit or whether an enrolment exists, stay with the contract, and simulation reports them before the user signs. Amended 2026-10-24 (W59).
-- **K6 Retries without double actions.** Amended 2026-10-23 (W50).
+- **K6 Retries without double actions.** Amended 2026-10-23 (W50), 2026-10-26 (W77).
   - The SDK uses the contract client to build, simulate and sign, and sends and polls the transaction itself.
   - PENDING or DUPLICATE: the SDK polls for the outcome.
   - TRY_AGAIN_LATER: the same signed transaction is resent up to 3 times, after 1, 2 and 4 seconds.
   - Waiting for an outcome times out after 60 seconds: the SDK returns a pending result with the transaction hash and the time the transaction stops being valid, and never builds a new transaction by itself.
   - Reads are retried up to 3 times on network errors.
+  - The steps of a write before signing are retried the same way: the network check, the account lookup and the simulation. Nothing is signed or sent before them, so a retry can't double an action. A network passphrase mismatch and a contract error from simulation are never retried. stellar-sdk reports every failed account lookup as "Account not found", so a failed request and a missing account look the same; an account that really doesn't exist gets its error after the retries, about 3.5 seconds. Amended 2026-10-26 (W77).
 - **K7 Typed errors.** Every error has a stable code and type. Amended 2026-10-23 (W48):
   - invalid input, caught before any network call;
   - contract error, mapped from the section 6 codes;
