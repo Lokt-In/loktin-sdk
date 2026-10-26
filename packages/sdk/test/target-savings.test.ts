@@ -1,14 +1,21 @@
 import { Address, StrKey, nativeToScVal } from '@stellar/stellar-sdk/base';
 import { ScVal } from '@stellar/stellar-sdk/xdr';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InvalidInputError, TESTNET } from '../src/index.js';
+import { ContractError, InvalidInputError, TESTNET } from '../src/index.js';
 import {
   type CreateGoalInput,
   type Goal,
   TargetSavings,
 } from '../src/target-savings/index.js';
 import type { RawGoal } from '../src/target-savings/types.js';
-import { FakeServer, USER, simulationSuccess } from './fake-server.js';
+import {
+  FakeServer,
+  USER,
+  callEvent,
+  errorEvent,
+  simulationFailure,
+  simulationSuccess,
+} from './fake-server.js';
 import { loktinOn, queueWrite, retvalOf, settle, xdrOf } from './modules.js';
 
 const TS = TESTNET.contracts.targetSavings;
@@ -412,5 +419,90 @@ describe('Target Savings checks before any network call', () => {
     await refused(() => module().deposit(4n, 0n), 'InvalidDeposit');
     await refused(() => module().openGoals(1n, 51), 'InvalidLimit');
     await refused(() => module().openGoals(1n, 0), 'InvalidLimit');
+  });
+});
+
+describe('accrued fees', () => {
+  const RECIPIENT = StrKey.encodeContract(new Uint8Array(32).fill(6));
+  // A muxed account can receive payments, but not hold accrued fees.
+  const PAYEE_M = StrKey.encodeMed25519PublicKey(new Uint8Array(40).fill(5));
+
+  it('claimFees claims for publicKey and decodes the amount', async () => {
+    queueWrite(server, retvalOf('target-savings', 'claim_fees', 550n));
+    const claimed = await settle(module().claimFees());
+    expect(claimed).toMatchObject({ result: 550n });
+    expect((claimed as { result: unknown }).result).toBeTypeOf('bigint');
+    const [call] = server.invocations();
+    expect(call?.contractId).toBe(TS);
+    expect(call?.method).toBe('claim_fees');
+    expect(xdrOf(call?.args ?? [])).toEqual(xdrOf([address(USER)]));
+  });
+
+  it('maps NothingToClaim to CONTRACT_ERROR 120', async () => {
+    server.simulations.push(
+      simulationFailure('HostError: Error(Contract, #120)', [
+        callEvent(TS),
+        errorEvent(TS, 120),
+      ]),
+    );
+    const error = await settle(module().claimFees());
+    expect(error).toBeInstanceOf(ContractError);
+    expect(error).toMatchObject({
+      code: 'CONTRACT_ERROR',
+      contract: 'target-savings',
+      number: 120,
+      errorName: 'NothingToClaim',
+      description: 'The recipient has no accrued fees to claim.',
+    });
+    expect(server.methods()).not.toContain('sendTransaction');
+  });
+
+  it('accruedFees reads for the integrator by default, or for a given recipient', async () => {
+    server.simulateBy = (call) =>
+      call.method === 'accrued_fees' ? simulationSuccess(i128(75n)) : undefined;
+    const targetSavings = module();
+    await expect(targetSavings.accruedFees()).resolves.toBe(75n);
+    await expect(targetSavings.accruedFees(RECIPIENT)).resolves.toBe(75n);
+    const calls = server.invocations();
+    expect(calls.map((call) => call.method)).toEqual([
+      'accrued_fees',
+      'accrued_fees',
+    ]);
+    expect(xdrOf(calls[0]?.args ?? [])).toEqual(xdrOf([address(INTEGRATOR)]));
+    expect(xdrOf(calls[1]?.args ?? [])).toEqual(xdrOf([address(RECIPIENT)]));
+  });
+
+  it('accruedFees refuses an invalid recipient before any server call', async () => {
+    for (const recipient of ['G', 'not an address', PAYEE_M]) {
+      await expect(module().accruedFees(recipient)).rejects.toThrow(
+        InvalidInputError,
+      );
+    }
+    expect(server.calls).toEqual([]);
+  });
+
+  it('accruedFees uses the read adapter when it has the method', async () => {
+    const accruedFees = vi.fn(() => Promise.resolve(12n));
+    const targetSavings = new TargetSavings(
+      loktinOn(server, { targetSavings: { accruedFees } }),
+      OPTIONS,
+    );
+    await expect(targetSavings.accruedFees()).resolves.toBe(12n);
+    expect(accruedFees).toHaveBeenCalledWith(INTEGRATOR);
+    expect(server.calls).toEqual([]);
+  });
+
+  it('claimFees never uses the read adapter', async () => {
+    const accruedFees = vi.fn(() => Promise.resolve(12n));
+    queueWrite(server, retvalOf('target-savings', 'claim_fees', 5n));
+    const targetSavings = new TargetSavings(
+      loktinOn(server, { targetSavings: { accruedFees } }),
+      OPTIONS,
+    );
+    await settle(targetSavings.claimFees());
+    expect(accruedFees).not.toHaveBeenCalled();
+    expect(server.invocations().map((call) => call.method)).toEqual([
+      'claim_fees',
+    ]);
   });
 });

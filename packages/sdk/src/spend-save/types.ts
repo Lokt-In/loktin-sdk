@@ -102,6 +102,7 @@ export interface SpendSaveReadAdapter {
   loktinFeeBps?(): Promise<number>;
   feeRecipient?(): Promise<string>;
   paused?(): Promise<boolean>;
+  accruedFees?(recipient: string): Promise<bigint>;
 }
 
 // The shapes the contract spec decodes to. An empty option decodes to null.

@@ -194,7 +194,12 @@ export class TargetSavings {
     });
   }
 
-  /** Pays out the whole goal to `publicKey` and closes it (P5, P6, R2). */
+  /**
+   * Withdraws the whole goal of `publicKey` and closes it (P5, P6, R2).
+   * The owner receives `toUser`. The penalty and integrator fee accrue to
+   * the integrator, and the Loktin fee to Loktin's fee recipient, who each
+   * claim them with {@link TargetSavings.claimFees}.
+   */
   async withdraw(goalId: bigint): Promise<WriteResult<GoalWithdrawal>> {
     const owner = writerOf(this.loktin.config);
     const goal_id = checkU64(goalId, 'goalId');
@@ -361,6 +366,36 @@ export class TargetSavings {
     return adapter?.minCadence ? adapter.minCadence() : this.chain.minCadence();
   }
 
+  /**
+   * Pays out every fee accrued to `publicKey` and returns the amount
+   * (W63). The call acts for `publicKey`, so it needs only the configured
+   * signer. An integrator claims by creating the SDK with its own
+   * `publicKey` and signer, and Loktin's fee recipient claims the same way.
+   * With nothing accrued, the contract refuses it with `NothingToClaim`.
+   * Never uses the read adapter.
+   */
+  async claimFees(): Promise<WriteResult<bigint>> {
+    const recipient = writerOf(this.loktin.config);
+    return this.loktin.write<bigint>('target-savings', 'claim_fees', {
+      recipient,
+    });
+  }
+
+  /**
+   * Returns the fees accrued to `recipient` and not yet claimed (W63).
+   * `recipient` defaults to the module's integrator.
+   */
+  async accruedFees(recipient?: string): Promise<bigint> {
+    const address =
+      recipient === undefined
+        ? this.integrator
+        : checkAddress(recipient, 'recipient');
+    const adapter = this.adapter;
+    return adapter?.accruedFees
+      ? adapter.accruedFees(address)
+      : this.chain.accruedFees(address);
+  }
+
   /** Returns whether Target Savings is paused. */
   async paused(): Promise<boolean> {
     const adapter = this.adapter;
@@ -388,5 +423,6 @@ function chainReads(loktin: Loktin): Required<TargetSavingsReadAdapter> {
     feeRecipient: () => read<string>('fee_recipient'),
     minCadence: async () => Number(await read<bigint>('min_cadence')),
     paused: () => read<boolean>('paused'),
+    accruedFees: (recipient) => read<bigint>('accrued_fees', { recipient }),
   };
 }

@@ -7,6 +7,7 @@ declare const userAddress: string;
 declare const integratorAddress: string;
 declare const shopAddress: string;
 declare const wallet: { signTransaction: SignTransaction };
+declare const integratorWallet: { signTransaction: SignTransaction };
 
 // README: Quick start
 import { createLoktin } from '@loktin/sdk';
@@ -60,6 +61,29 @@ console.log('Saved', fromBaseUnits(saved), 'USDC');
 
 const next = windowInTimeZone(await spendSave.nextWindow());
 console.log(`You can withdraw from ${next.start} until ${next.end}.`);
+// README: end
+
+// README: For integrators
+// The integrator's own SDK instance, with its address and its wallet.
+const integratorLoktin = createLoktin({
+  network: 'testnet',
+  publicKey: integratorAddress,
+  signer: {
+    signTransaction: (xdr, opts) => integratorWallet.signTransaction(xdr, opts),
+  },
+});
+
+// Fees accrue separately in each contract.
+for (const savings of [
+  new TargetSavings(integratorLoktin, options),
+  new SpendSave(integratorLoktin, options),
+]) {
+  const owed = await savings.accruedFees();
+  if (owed > 0n) {
+    const claimed = await savings.claimFees();
+    console.log('Claimed', fromBaseUnits(claimed.result), 'USDC');
+  }
+}
 // README: end
 
 // README: Errors

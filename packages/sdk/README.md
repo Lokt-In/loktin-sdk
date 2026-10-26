@@ -7,7 +7,7 @@ A TypeScript SDK for Loktin's savings contracts on Stellar. It has no user inter
 
 ## Status
 
-- This is the preview release, `0.1.0`. Its API may change before `1.0.0`.
+- This is the preview release, `0.2.0`. Its API may change before `1.0.0`.
 - It works on Stellar testnet only. The contracts have no mainnet deployment, and the SDK refuses the public network.
 - It is designed for browsers and Node. Browser support will be confirmed with the reference app, and is not claimed yet.
 
@@ -91,6 +91,35 @@ const next = windowInTimeZone(await spendSave.nextWindow());
 console.log(`You can withdraw from ${next.start} until ${next.end}.`);
 ```
 
+## For integrators: claiming fees
+
+A withdrawal pays the user their share. The integrator's fee, and the early-withdrawal penalty on a Target Savings goal, accrue to the integrator in the contract. The integrator claims them with `claimFees`, and `accruedFees` shows what is owed. Loktin's fee recipient claims its fees the same way.
+
+Claiming needs the integrator's own key: create a separate SDK instance with the integrator's address as `publicKey` and its wallet as the signer. The integrator's account also needs a trustline for the token at the time of the claim, or the payment fails and the fees stay where they are. Unclaimed fees never expire.
+
+```ts
+// The integrator's own SDK instance, with its address and its wallet.
+const integratorLoktin = createLoktin({
+  network: 'testnet',
+  publicKey: integratorAddress,
+  signer: {
+    signTransaction: (xdr, opts) => integratorWallet.signTransaction(xdr, opts),
+  },
+});
+
+// Fees accrue separately in each contract.
+for (const savings of [
+  new TargetSavings(integratorLoktin, options),
+  new SpendSave(integratorLoktin, options),
+]) {
+  const owed = await savings.accruedFees();
+  if (owed > 0n) {
+    const claimed = await savings.claimFees();
+    console.log('Claimed', fromBaseUnits(claimed.result), 'USDC');
+  }
+}
+```
+
 ## Errors
 
 Every error the SDK throws is a `LoktinError` with a stable `code`:
@@ -131,7 +160,7 @@ try {
 
 - No one but the user moves the user's money. Deposits, payments and withdrawals need the user's signature, and scheduled deposits are collected only within the allowance the user approved.
 - There is no yield. Savings are held as they are deposited.
-- Fees are taken from the amount withdrawn, and each is capped in the contracts:
+- A withdrawal pays the user their share. The penalty and fees accrue to the integrator and Loktin's fee recipient, who each claim them, so no one else can block a user's withdrawal. Each is capped in the contracts:
   - the Loktin fee is 0% today, and can never be more than 1%;
   - the integrator fee is at most 1%;
   - the early-withdrawal penalty on a Target Savings goal is at most 10%.
