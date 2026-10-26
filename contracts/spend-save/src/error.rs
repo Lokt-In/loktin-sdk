@@ -54,6 +54,8 @@ pub enum Error {
     YieldSourceNotSupported = 213,
     /// The contract's configuration is missing from storage.
     ConfigMissing = 214,
+    /// The recipient has no accrued fees to claim.
+    NothingToClaim = 215,
 }
 
 impl From<CommonError> for Error {

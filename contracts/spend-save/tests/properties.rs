@@ -1,6 +1,6 @@
 //! T3: random sequences of enrol, pay_and_save, save_for_spend, settings
-//! changes, withdrawals in and out of the window, fee changes and month
-//! changes, checking the money rules after every step.
+//! changes, withdrawals in and out of the window, fee changes, fee claims
+//! and month changes, checking the money rules after every step.
 
 mod common;
 
@@ -65,6 +65,10 @@ enum Op {
     SetFee {
         loktin_fee_bps: u32,
     },
+    /// Claims for one of the integrators or the fee recipient.
+    Claim {
+        recipient: usize,
+    },
     Advance {
         seconds: u64,
     },
@@ -118,11 +122,22 @@ fn op() -> impl Strategy<Value = Op> {
         ),
         1 => who.clone().prop_map(|(user, integrator)| Op::Close { user, integrator }),
         1 => (0..=120_u32).prop_map(|loktin_fee_bps| Op::SetFee { loktin_fee_bps }),
+        1 => any::<usize>().prop_map(|recipient| Op::Claim { recipient }),
         3 => (0..=20 * DAY).prop_map(|seconds| Op::Advance { seconds }),
         2 => (who, 0..DAY).prop_map(|((user, integrator), offset)| {
             Op::ToWindow { user, integrator, offset }
         }),
     ]
+}
+
+/// The tracked fees of one recipient. A list, since `Address` cannot be a
+/// map key under clippy.
+fn owed<'a>(accrued: &'a mut [(Address, i128)], recipient: &Address) -> &'a mut i128 {
+    &mut accrued
+        .iter_mut()
+        .find(|(who, _)| who == recipient)
+        .expect("a tracked recipient")
+        .1
 }
 
 /// The fee rates an enrolment was created with.
@@ -134,6 +149,8 @@ struct Run<'a> {
     integrators: std::vec::Vec<Address>,
     goals: std::vec::Vec<u64>,
     rates: BTreeMap<(usize, usize), Rates>,
+    /// The fees each recipient should have accrued and not yet claimed.
+    accrued: std::vec::Vec<(Address, i128)>,
 }
 
 impl Run<'_> {
@@ -144,9 +161,14 @@ impl Run<'_> {
         let s = common::setup_in(env, 0, true);
         s.env.mock_all_auths();
         let users: std::vec::Vec<Address> = (0..USERS).map(|_| Address::generate(&s.env)).collect();
-        let integrators = (0..INTEGRATORS)
+        let integrators: std::vec::Vec<Address> = (0..INTEGRATORS)
             .map(|_| Address::generate(&s.env))
             .collect();
+        let accrued = integrators
+            .iter()
+            .chain([&s.fee_recipient])
+            .map(|recipient| (recipient.clone(), 0))
+            .collect::<std::vec::Vec<_>>();
         // One Target Savings goal per user, to aim skims at.
         let goals = users
             .iter()
@@ -171,6 +193,7 @@ impl Run<'_> {
             integrators,
             goals,
             rates: BTreeMap::new(),
+            accrued,
         }
     }
 
@@ -321,7 +344,12 @@ impl Run<'_> {
                     _ => 1_000,
                 };
                 let amount = &(principal * permille / 1_000);
-                let contract_before = self.s.token.balance(&c.address);
+                let balance = |who: &Address| self.s.token.balance(who);
+                let contract_before = balance(&c.address);
+                let integrator_before = balance(integrator_address);
+                let recipient_before = balance(&self.s.fee_recipient);
+                let integrator_accrued = c.accrued_fees(integrator_address);
+                let recipient_accrued = c.accrued_fees(&self.s.fee_recipient);
                 match c.try_withdraw(user_address, integrator_address, amount) {
                     Ok(Ok(w)) => {
                         // Every withdrawal's parts sum exactly to the amount.
@@ -332,7 +360,21 @@ impl Run<'_> {
                         };
                         let after = c.enrollment(user_address, integrator_address);
                         assert_eq!(before.principal - after.principal, *amount);
-                        assert_eq!(contract_before - self.s.token.balance(&c.address), *amount);
+                        // Only the user is paid. The fees accrue and stay in
+                        // the contract until claimed.
+                        assert_eq!(contract_before - balance(&c.address), w.to_user);
+                        assert_eq!(balance(integrator_address), integrator_before);
+                        assert_eq!(balance(&self.s.fee_recipient), recipient_before);
+                        assert_eq!(
+                            c.accrued_fees(integrator_address) - integrator_accrued,
+                            w.integrator_fee
+                        );
+                        assert_eq!(
+                            c.accrued_fees(&self.s.fee_recipient) - recipient_accrued,
+                            w.loktin_fee
+                        );
+                        *owed(&mut self.accrued, integrator_address) += w.integrator_fee;
+                        *owed(&mut self.accrued, &self.s.fee_recipient) += w.loktin_fee;
                     }
                     Err(Ok(
                         Error::OutsideWindow
@@ -351,6 +393,19 @@ impl Run<'_> {
             }
             Op::SetFee { loktin_fee_bps } => {
                 let _ = c.try_set_loktin_fee(loktin_fee_bps, &self.s.fee_admin);
+            }
+            Op::Claim { recipient } => {
+                let (recipient, expected) = self.accrued[recipient % self.accrued.len()].clone();
+                let before = self.s.token.balance(&recipient);
+                match c.try_claim_fees(&recipient) {
+                    Ok(Ok(amount)) => {
+                        assert_eq!(amount, expected);
+                        assert_eq!(self.s.token.balance(&recipient) - before, expected);
+                        *owed(&mut self.accrued, &recipient) = 0;
+                    }
+                    Err(Ok(Error::NothingToClaim)) => assert_eq!(expected, 0),
+                    other => panic!("unexpected claim result {other:?}"),
+                }
             }
             Op::Advance { seconds } => {
                 self.s.set_time(self.s.env.ledger().timestamp() + seconds);
@@ -390,8 +445,13 @@ impl Run<'_> {
                 }
             }
         }
-        // The sum of principals equals the contract's token balance.
-        assert_eq!(principals, self.s.token.balance(&c.address));
+        let mut accrued = 0;
+        for (recipient, expected) in &self.accrued {
+            assert_eq!(c.accrued_fees(recipient), *expected);
+            accrued += expected;
+        }
+        // Principals plus unclaimed fees equal the contract's token balance.
+        assert_eq!(principals + accrued, self.s.token.balance(&c.address));
     }
 }
 

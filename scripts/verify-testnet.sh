@@ -16,7 +16,6 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEPLOYMENTS="${1:-${ROOT}/deployments/testnet.json}"
 NETWORK="testnet"
 SOURCE_REPO="github:Lokt-In/loktin-sdk"
-BINVER="0.1.0"
 EXPECTED_FEE_BPS=0
 EXPECTED_MIN_CADENCE=86400
 
@@ -86,6 +85,9 @@ for name in target_savings spend_save; do
   echo "== ${name}"
   id="$(field "contracts.${name}.id")"
   recorded_hash="$(field "contracts.${name}.wasm_hash")"
+  # contracts-v0.2.0 is binver 0.2.0.
+  release_tag="$(field "contracts.${name}.release_tag")"
+  binver="${release_tag#contracts-v}"
   if [ -z "$id" ]; then
     fail "${name}: no contract id recorded"
     continue
@@ -94,7 +96,7 @@ for name in target_savings spend_save; do
 
   stellar contract info meta --contract-id "$id" --network "$NETWORK"
   meta="$(stellar contract info meta --contract-id "$id" --network "$NETWORK" --output json 2>/dev/null)"
-  if has_meta "$meta" binver "$BINVER"; then pass "${name}: binver ${BINVER}"; else fail "${name}: binver ${BINVER}"; fi
+  if has_meta "$meta" binver "$binver"; then pass "${name}: binver ${binver}"; else fail "${name}: binver ${binver}"; fi
   if has_meta "$meta" source_repo "$SOURCE_REPO"; then
     pass "${name}: source_repo ${SOURCE_REPO}"
   else
@@ -115,6 +117,14 @@ for name in target_savings spend_save; do
     check "${name}: min_cadence" "$(read_fn "$id" min_cadence)" "$EXPECTED_MIN_CADENCE"
   else
     check "${name}: target_savings" "$(read_fn "$id" target_savings)" "$TS_ID"
+  fi
+
+  # accrued_fees exists from 0.2.0 on, so a number proves the upgrade is live.
+  accrued="$(read_fn "$id" accrued_fees --recipient "$FEE_RECIPIENT")"
+  if [[ "$accrued" =~ ^[0-9]+$ ]]; then
+    pass "${name}: accrued_fees for the fee recipient is ${accrued}"
+  else
+    fail "${name}: accrued_fees for the fee recipient (got '${accrued}')"
   fi
 
   check "${name}: get_admin" "$(read_fn "$id" get_admin)" "$ADMIN"

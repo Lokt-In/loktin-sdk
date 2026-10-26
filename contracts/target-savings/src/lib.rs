@@ -18,12 +18,12 @@ use stellar_contract_utils::upgradeable::{self as upgradeable, Upgradeable};
 
 pub use crate::error::Error;
 pub use crate::events::{
-    DepositKind, Deposited, FeeRecipientSet, GoalClosed, GoalCreated, LoktinFeeSet, Missed,
-    Upgraded, Withdrawn,
+    DepositKind, Deposited, FeeRecipientSet, FeesClaimed, GoalClosed, GoalCreated, LoktinFeeSet,
+    Missed, Upgraded, Withdrawn,
 };
 pub use crate::storage::{DataKey, Goal, GoalRecord, WithdrawalRule, MAX_OPEN_GOALS, MAX_PAGE};
 
-contractmeta!(key = "binver", val = "0.1.0");
+contractmeta!(key = "binver", val = "0.2.0");
 
 /// How a withdrawal splits between its recipients.
 #[contracttype]
@@ -304,8 +304,10 @@ impl TargetSavings {
         Ok(())
     }
 
-    /// Pays out the whole goal and closes it (P5, P6, R2). Never blocked by
-    /// pause (C4).
+    /// Pays the owner's share of the whole goal and closes it (P5, P6, R2).
+    /// The penalty and integrator fee accrue to the integrator, and the
+    /// Loktin fee to the current fee recipient, for each to claim with
+    /// `claim_fees` (W63). Never blocked by pause (C4).
     pub fn withdraw(e: &Env, owner: Address, goal_id: u64) -> Result<Withdrawal, Error> {
         owner.require_auth();
         let config = storage::config(e)?;
@@ -321,22 +323,21 @@ impl TargetSavings {
             ids.remove(index);
         }
         storage::set_user_goal_ids(e, &owner, &ids);
-        ttl::extend_instance(e);
-
-        let token = token::TokenClient::new(e, &config.token);
-        let contract = e.current_contract_address();
         let to_integrator = withdrawal
             .penalty
             .checked_add(withdrawal.integrator_fee)
             .ok_or(Error::Overflow)?;
-        for (to, amount) in [
-            (&owner, withdrawal.to_user),
-            (&goal.integrator, to_integrator),
-            (&config.fee_recipient, withdrawal.loktin_fee),
-        ] {
-            if amount > 0 {
-                token.transfer(&contract, to, &amount);
-            }
+        storage::add_accrued_fees(e, &goal.integrator, to_integrator)?;
+        storage::add_accrued_fees(e, &config.fee_recipient, withdrawal.loktin_fee)?;
+        ttl::extend_instance(e);
+
+        // The only transfer: no recipient of fees can block the owner (S8).
+        if withdrawal.to_user > 0 {
+            token::TokenClient::new(e, &config.token).transfer(
+                &e.current_contract_address(),
+                &owner,
+                &withdrawal.to_user,
+            );
         }
 
         Withdrawn {
@@ -351,6 +352,32 @@ impl TargetSavings {
         .publish(e);
         GoalClosed { goal_id, owner }.publish(e);
         Ok(withdrawal)
+    }
+
+    /// Pays out every fee accrued to `recipient` and returns the amount
+    /// (W63). Signed by the recipient. Never blocked by pause (C4).
+    pub fn claim_fees(e: &Env, recipient: Address) -> Result<i128, Error> {
+        recipient.require_auth();
+        let config = storage::config(e)?;
+        let amount = storage::take_accrued_fees(e, &recipient);
+        if amount == 0 {
+            return Err(Error::NothingToClaim);
+        }
+        ttl::extend_instance(e);
+
+        token::TokenClient::new(e, &config.token).transfer(
+            &e.current_contract_address(),
+            &recipient,
+            &amount,
+        );
+
+        FeesClaimed { recipient, amount }.publish(e);
+        Ok(amount)
+    }
+
+    /// Returns the fees accrued to `recipient` and not yet claimed (W63).
+    pub fn accrued_fees(e: &Env, recipient: Address) -> i128 {
+        storage::accrued_fees(e, &recipient)
     }
 
     /// Returns an open goal.

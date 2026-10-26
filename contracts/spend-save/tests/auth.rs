@@ -594,3 +594,59 @@ fn grant_role_is_authorized_by_the_admin_only() {
         );
     }
 }
+
+/// Accrues 1% of a 1,000 withdrawal to the fee recipient, with every call
+/// signed.
+fn accrue_signed(s: &Setup) {
+    mint(s, &s.user, 5_000);
+    enroll_signed(s, Destination::Balance);
+    save_signed(s);
+    sign(
+        s,
+        &s.user,
+        "withdraw",
+        (&s.user, &s.integrator, 1_000_i128).into_val(&s.env),
+    );
+    s.contract.withdraw(&s.user, &s.integrator, &1_000);
+    assert_eq!(s.contract.accrued_fees(&s.fee_recipient), 10);
+}
+
+#[test]
+fn claim_fees_is_authorized_by_the_recipient_only() {
+    let s = common::setup_with_fee(100);
+    accrue_signed(&s);
+    let args: Vec<Val> = (&s.fee_recipient,).into_val(&s.env);
+    sign(&s, &s.fee_recipient, "claim_fees", args.clone());
+    assert_eq!(s.contract.claim_fees(&s.fee_recipient), 10);
+    // The payout is the contract's own transfer, so no other signature.
+    assert_eq!(
+        s.env.auths(),
+        std::vec![(
+            s.fee_recipient.clone(),
+            invocation(&s.contract.address, "claim_fees", args, std::vec![])
+        )]
+    );
+    assert_eq!(s.token.balance(&s.fee_recipient), 10);
+}
+
+#[test]
+fn claim_fees_by_a_stranger_is_refused() {
+    let s = common::setup_with_fee(100);
+    accrue_signed(&s);
+    let stranger = Address::generate(&s.env);
+    sign(
+        &s,
+        &stranger,
+        "claim_fees",
+        (&s.fee_recipient,).into_val(&s.env),
+    );
+    assert!(refused_auth(s.contract.try_claim_fees(&s.fee_recipient)));
+    assert_eq!(s.contract.accrued_fees(&s.fee_recipient), 10);
+    assert_eq!(s.token.balance(&s.fee_recipient), 0);
+    // A stranger claiming as themselves has nothing accrued.
+    sign(&s, &stranger, "claim_fees", (&stranger,).into_val(&s.env));
+    assert_eq!(
+        s.contract.try_claim_fees(&stranger),
+        Err(Ok(Error::NothingToClaim))
+    );
+}

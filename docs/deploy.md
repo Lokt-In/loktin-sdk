@@ -77,6 +77,51 @@ To use other alias names, set `LOKTIN_DEPLOYER`, `LOKTIN_ADMIN`, `LOKTIN_FEE_ADM
 
 6. Commit the updated `deployments/testnet.json` through a pull request. Contract ids are public, not secrets.
 
+## Upgrading
+
+An upgrade replaces the code of the recorded contracts in place, so their ids stay the same (C5). Each upgrade has a decision note in `docs/decisions` that explains why the stored records stay readable. The first one is `contracts-v0.2.0`, which adds accrued fees (0002).
+
+1. After the pull request with the new contract version is merged, tag the merged `main` commit and push the tag:
+
+   ```sh
+   git switch main
+   git pull
+   git tag contracts-v0.2.0
+   git push origin contracts-v0.2.0
+   ```
+
+2. Wait for the release workflow (`.github/workflows/release-contracts.yml`) to finish.
+3. Download its artifact, with the run id that `gh run list --workflow release-contracts.yml` shows:
+
+   ```sh
+   gh run download <run-id> -n contracts-wasm -D <dir>
+   ```
+
+4. Check each file's attestation:
+
+   ```sh
+   gh attestation verify <dir>/loktin_target_savings.wasm -R Lokt-In/loktin-sdk
+   gh attestation verify <dir>/loktin_spend_save.wasm -R Lokt-In/loktin-sdk
+   ```
+
+5. Run the upgrade, then the verify script:
+
+   ```sh
+   scripts/upgrade-testnet.sh <dir> contracts-v0.2.0
+   scripts/verify-testnet.sh
+   ```
+
+   The upgrade script uses `loktin-deployer` to pay for the uploads and `loktin-upgrader` to call `upgrade`. Set `LOKTIN_DEPLOYER` and `LOKTIN_UPGRADER` to use other aliases. Before any network call it stops unless:
+   - `SHA256SUMS` in the folder verifies;
+   - each Wasm's metadata has `source_repo=github:Lokt-In/loktin-sdk` and a `binver` equal to the tag's version (`0.2.0` for `contracts-v0.2.0`);
+   - the upgrader alias's address is the `roles.upgrader` recorded in `deployments/testnet.json`.
+
+   Then, for each contract, it uploads the Wasm, stops if the returned hash differs from the file's sha256, and calls `upgrade` on the recorded contract id. After each upgrade it records the new `wasm_hash`, `release_tag` and `commit` in `deployments/testnet.json`, and adds the release to the contract's `history` list, which keeps the earlier releases.
+
+   The verify script then expects each contract's `binver` to match its recorded release tag, and checks that `accrued_fees` answers, which shows the new code is live.
+
+6. Open a pull request with the `deployments/testnet.json` change.
+
 ## Not yet covered
 
 The SDK-based testnet smoke script (V6) comes in part 7, once the SDK exists.
