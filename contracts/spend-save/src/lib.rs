@@ -30,7 +30,7 @@ pub use crate::storage::{
     MAX_PERCENT_BPS, MIN_PERCENT_BPS,
 };
 
-contractmeta!(key = "binver", val = "0.2.0");
+contractmeta!(key = "binver", val = "0.3.0");
 
 /// How a skim is worked out from a spend, before the wallet is checked
 /// (P12, P13).

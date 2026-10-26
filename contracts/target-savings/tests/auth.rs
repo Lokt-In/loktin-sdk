@@ -155,7 +155,8 @@ fn create_goal_for_someone_else_is_refused() {
         &0,
         &None,
     )));
-    assert_eq!(s.contract.next_id(), 1);
+    assert_eq!(s.contract.user_goals(&s.owner).len(), 0);
+    assert_eq!(s.goals_created(&s.owner), 0);
 }
 
 #[test]
@@ -505,5 +506,33 @@ fn claim_fees_by_a_stranger_is_refused() {
     assert_eq!(
         s.contract.try_claim_fees(&stranger),
         Err(Ok(Error::NothingToClaim))
+    );
+}
+
+#[test]
+fn create_goal_without_allowance_needs_only_the_owner() {
+    // The per-owner id (W75) adds no signature: only the owner signs, with
+    // no sub-invocation.
+    let s = common::setup_with_fee(0);
+    let args = create_args(&s, &s.owner, None);
+    sign(&s, &s.owner, "create_goal", args.clone());
+    let id = s.contract.create_goal(
+        &s.owner,
+        &10_000,
+        &(START + 10 * WEEK),
+        &WEEK,
+        &1_000,
+        &WithdrawalRule::Lock,
+        &s.integrator,
+        &0,
+        &None,
+    );
+    assert_eq!(id, common::goal_id(&s.env, &s.owner, 0));
+    assert_eq!(
+        s.env.auths(),
+        std::vec![(
+            s.owner.clone(),
+            invocation(&s, &s.contract.address, "create_goal", args, std::vec![])
+        )]
     );
 }

@@ -52,7 +52,8 @@ pub enum Error {
     ExceedsTarget = 113,
     /// The lock rule forbids withdrawal before the target or deadline.
     Locked = 114,
-    /// A page limit is outside 1 to 50.
+    /// A page limit is outside 1 to 50. No longer returned since 0.3.0,
+    /// which removed `open_goals`; the code is never reused.
     InvalidLimit = 115,
     /// A yield source was supplied, and none is supported in this version.
     YieldSourceNotSupported = 116,
@@ -64,6 +65,8 @@ pub enum Error {
     InvalidFeeRecipient = 119,
     /// The recipient has no accrued fees to claim.
     NothingToClaim = 120,
+    /// No free goal id was found for the owner within 8 tries.
+    GoalIdUnavailable = 121,
 }
 
 impl From<CommonError> for Error {

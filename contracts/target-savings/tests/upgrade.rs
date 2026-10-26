@@ -39,7 +39,6 @@ fn upgrader_upgrades_and_records_stay_readable() {
     // Now running the compiled Wasm.
     assert_eq!(s.contract.goal(&id), before);
     assert_eq!(s.contract.user_goals(&s.owner).get_unchecked(0), before);
-    assert_eq!(s.contract.next_id(), 2);
     assert_eq!(s.contract.token(), s.token.address);
     assert_eq!(s.contract.withdraw(&s.owner, &id).penalty, 250);
 }

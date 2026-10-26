@@ -109,7 +109,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
                 },
                 {
-                  "u64": "1"
+                  "u64": "8727381940235605853"
                 },
                 {
                   "i128": "1000"
@@ -155,7 +155,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
                 },
                 {
-                  "u64": "1"
+                  "u64": "8727381940235605853"
                 }
               ]
             }
@@ -251,7 +251,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
                 },
                 {
-                  "u64": "2"
+                  "u64": "1852262199956569468"
                 },
                 {
                   "i128": "1000"
@@ -297,7 +297,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
                 },
                 {
-                  "u64": "2"
+                  "u64": "1852262199956569468"
                 }
               ]
             }
@@ -475,6 +475,33 @@
           "ext": "v0"
         },
         "live_until": 1556200
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARQG5",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "GoalsCreated"
+                  },
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "u64": "2"
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 5703399
       },
       {
         "entry": {
@@ -855,18 +882,6 @@
                             "val": "void"
                           }
                         ]
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "NextId"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "u64": "3"
                       }
                     },
                     {

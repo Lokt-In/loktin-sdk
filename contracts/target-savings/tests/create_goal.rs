@@ -28,6 +28,11 @@ fn try_create(
     )
 }
 
+/// The id the owner's first goal receives.
+fn first_id(s: &Setup) -> u64 {
+    common::goal_id(&s.env, &s.owner, 0)
+}
+
 #[test]
 fn creates_goal_and_emits_event() {
     let s = common::setup_with_fee(100);
@@ -43,11 +48,11 @@ fn creates_goal_and_emits_event() {
         &50,
         &None,
     );
-    assert_eq!(id, 1);
+    assert_eq!(id, first_id(&s));
     assert_eq!(
         s.env.events().all().filter_by_contract(&s.contract.address),
         [GoalCreated {
-            goal_id: 1,
+            goal_id: id,
             owner: s.owner.clone(),
             integrator: s.integrator.clone(),
             target: 10_000,
@@ -62,9 +67,9 @@ fn creates_goal_and_emits_event() {
         .to_xdr(&s.env, &s.contract.address)]
     );
     assert_eq!(
-        s.contract.goal(&1),
+        s.contract.goal(&id),
         Goal {
-            id: 1,
+            id,
             owner: s.owner.clone(),
             integrator: s.integrator.clone(),
             integrator_fee_bps: 50,
@@ -81,16 +86,19 @@ fn creates_goal_and_emits_event() {
             missed_count: 0,
         }
     );
-    assert_eq!(s.contract.next_id(), 2);
+    assert_eq!(s.goals_created(&s.owner), 1);
     assert_eq!(s.contract.user_goals(&s.owner).len(), 1);
 }
 
 #[test]
-fn ids_are_sequential() {
+fn ids_follow_the_owner_counter() {
     let s = common::setup();
-    assert_eq!(s.create_default(WithdrawalRule::Lock), 1);
-    assert_eq!(s.create_default(WithdrawalRule::Lock), 2);
-    assert_eq!(s.create_default(WithdrawalRule::Lock), 3);
+    for counter in 0..3 {
+        assert_eq!(
+            s.create_default(WithdrawalRule::Lock),
+            common::goal_id(&s.env, &s.owner, counter)
+        );
+    }
 }
 
 #[test]
@@ -149,7 +157,7 @@ fn cadence_exactly_at_minimum_is_accepted() {
     let s = common::setup();
     assert_eq!(
         try_create(&s, 1, START + DAY, MIN_CADENCE, 1, WithdrawalRule::Lock, 0),
-        Ok(Ok(1))
+        Ok(Ok(first_id(&s)))
     );
 }
 
@@ -175,7 +183,7 @@ fn first_period_due_exactly_at_deadline_is_accepted() {
     let s = common::setup();
     assert_eq!(
         try_create(&s, 1, START + WEEK, WEEK, 1, WithdrawalRule::Lock, 0),
-        Ok(Ok(1))
+        Ok(Ok(first_id(&s)))
     );
 }
 
@@ -210,7 +218,7 @@ fn penalty_at_cap_is_accepted_and_above_is_rejected() {
             WithdrawalRule::Penalty(1_000),
             0
         ),
-        Ok(Ok(1))
+        Ok(Ok(first_id(&s)))
     );
     assert_eq!(
         try_create(
@@ -231,7 +239,7 @@ fn integrator_fee_at_cap_is_accepted_and_above_is_rejected() {
     let s = common::setup();
     assert_eq!(
         try_create(&s, 1, START + WEEK, WEEK, 1, WithdrawalRule::Lock, 100),
-        Ok(Ok(1))
+        Ok(Ok(first_id(&s)))
     );
     assert_eq!(
         try_create(&s, 1, START + WEEK, WEEK, 1, WithdrawalRule::Lock, 101),
@@ -242,8 +250,11 @@ fn integrator_fee_at_cap_is_accepted_and_above_is_rejected() {
 #[test]
 fn twentieth_goal_is_accepted_and_twenty_first_is_rejected() {
     let s = common::setup();
-    for expected in 1..=u64::from(MAX_OPEN_GOALS) {
-        assert_eq!(s.create_default(WithdrawalRule::Lock), expected);
+    for counter in 0..u64::from(MAX_OPEN_GOALS) {
+        assert_eq!(
+            s.create_default(WithdrawalRule::Lock),
+            common::goal_id(&s.env, &s.owner, counter)
+        );
     }
     assert_eq!(s.contract.user_goals(&s.owner).len(), MAX_OPEN_GOALS);
     assert_eq!(
@@ -264,13 +275,18 @@ fn twentieth_goal_is_accepted_and_twenty_first_is_rejected() {
             &0,
             &None,
         ),
-        Ok(Ok(21))
+        Ok(Ok(common::goal_id(&s.env, &other, 0)))
     );
-    // Closing a goal frees a slot.
-    s.contract.withdraw(&s.owner, &1);
+    // Closing a goal frees a slot. The counter never goes back, so the new
+    // goal gets a new id.
+    s.contract.withdraw(&s.owner, &first_id(&s));
     assert_eq!(
         try_create(&s, 1, START + WEEK, WEEK, 1, WithdrawalRule::Lock, 0),
-        Ok(Ok(22))
+        Ok(Ok(common::goal_id(
+            &s.env,
+            &s.owner,
+            u64::from(MAX_OPEN_GOALS)
+        )))
     );
 }
 
@@ -291,7 +307,8 @@ fn rejects_this_contract_as_integrator() {
         ),
         Err(Ok(Error::InvalidIntegrator))
     );
-    assert_eq!(s.contract.next_id(), 1);
+    assert_eq!(s.contract.user_goals(&s.owner).len(), 0);
+    assert_eq!(s.goals_created(&s.owner), 0);
 }
 
 #[test]

@@ -2,7 +2,7 @@ mod common;
 
 use common::{env, MIN_CADENCE};
 use loktin_common::roles;
-use loktin_target_savings::{Error, TargetSavings};
+use loktin_target_savings::{DataKey, Error, TargetSavings};
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{Address, Env};
 
@@ -32,7 +32,10 @@ fn sets_configuration_and_roles() {
     assert_eq!(c.fee_recipient(), s.fee_recipient);
     assert_eq!(c.loktin_fee_bps(), 100);
     assert_eq!(c.min_cadence(), MIN_CADENCE);
-    assert_eq!(c.next_id(), 1);
+    // 0.3.0 no longer keeps a shared next id (W75).
+    s.env.as_contract(&c.address, || {
+        assert!(!s.env.storage().instance().has(&DataKey::NextId));
+    });
     assert_eq!(c.get_admin(), Some(s.admin.clone()));
     assert_eq!(c.has_role(&s.fee_admin, &roles::FEE_ADMIN), Some(0));
     assert_eq!(c.has_role(&s.pauser, &roles::PAUSER), Some(0));

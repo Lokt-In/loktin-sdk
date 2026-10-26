@@ -3,9 +3,10 @@
 
 #![allow(dead_code)]
 
-use loktin_target_savings::{TargetSavings, TargetSavingsClient, WithdrawalRule};
+use loktin_target_savings::{DataKey, TargetSavings, TargetSavingsClient, WithdrawalRule};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
+use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{Address, Env};
 
 /// 2026-10-22 00:00:00 UTC.
@@ -134,5 +135,28 @@ impl Setup<'_> {
             &0,
             &None,
         )
+    }
+}
+
+/// The id rule of W75, written out again for the tests: the first 8 bytes,
+/// big-endian, of `sha256(owner as XDR, then the counter as 8 big-endian
+/// bytes)`.
+pub fn goal_id(env: &Env, owner: &Address, counter: u64) -> u64 {
+    let mut data = owner.clone().to_xdr(env);
+    data.extend_from_array(&counter.to_be_bytes());
+    let hash = env.crypto().sha256(&data).to_array();
+    u64::from_be_bytes(hash[..8].try_into().unwrap())
+}
+
+impl Setup<'_> {
+    /// The owner's goal counter, as stored (0 before the first goal).
+    pub fn goals_created(&self, owner: &Address) -> u64 {
+        self.env.as_contract(&self.contract.address, || {
+            self.env
+                .storage()
+                .persistent()
+                .get(&DataKey::GoalsCreated(owner.clone()))
+                .unwrap_or(0)
+        })
     }
 }
