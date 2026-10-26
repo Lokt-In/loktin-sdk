@@ -262,6 +262,7 @@ Agreed 2026-10-22. The owner confirmed that no Stellar, Instawards or Nigerian r
   - Fees are taken when funds are withdrawn, calculated on the principal withdrawn.
   - Deposits and progress toward a target are never reduced by fees.
   - The withdrawal preview shows every deduction before the user signs.
+  - A withdrawal pays only the user. Penalties and integrator fees are credited to the integrator, and Loktin fees to the fee recipient, as accrued fees that each recipient claims itself (S4). So no third party can block a user's withdrawal, for example by having no trustline for the token. Accrued fees never expire. Amended 2026-10-26 (W63).
 - **R3 Rate fixed per goal.**
   - Each Target Savings goal and each Spend & Save enrolment stores the Loktin fee rate and the integrator fee rate in force when it was created.
   - Those rates never change for that goal or enrolment. A new Loktin rate applies only to goals and enrolments created afterwards.
@@ -314,6 +315,7 @@ Agreed 2026-10-22.
     - a new version recorded in contract metadata.
   - Public docs state plainly that the upgrader is the one remaining trusted power over the contracts.
   - Before any mainnet deployment, upgrades also require a multisig and a public waiting period. Their design is a recorded decision made before mainnet.
+  - The first upgrade (W64): `contracts-v0.2.0` adds accrued fees (W63) to the live testnet contracts in place, so their addresses stay the same. It follows every rule above, and the owner runs it with the upgrader key.
 - **C6 Versions.**
   - soroban-sdk 28.0.0 with OpenZeppelin stellar-contracts 0.8.0 (audited; its published crates require soroban-sdk ^28.0.0).
   - The Stellar host accepts contracts built for an older finalized protocol on a newer network (rs-soroban-env, `check_contract_interface_version`), so these contracts run on protocol 29.
@@ -364,12 +366,16 @@ Agreed 2026-10-22.
     - user: `enroll`, `update_settings`, `pay_and_save(user, integrator, to, amount)` where `to` may be a plain or muxed address, `save_for_spend(user, integrator, spent)`, `withdraw(user, integrator, amount)`, `close(user, integrator)`;
     - reads: `enrollment`, `preview_skim`, `preview_withdraw`, `next_window`;
     - the same role functions as Target Savings.
+  - Both contracts, accrued fees (W63):
+    - `claim_fees(recipient)`: signed by the recipient; pays out everything accrued to it and removes the entry. Not blocked by pause (C4);
+    - read: `accrued_fees(recipient)`;
+    - accrued fees are held in persistent storage, one entry per recipient, never temporary storage. An untouched entry is archived, never deleted, and restored by the next call that simulates it.
   - Exact argument types are fixed in the code and documented with the SDK (section 7).
 - **S5 Paging.** Goal ids are sequential. `open_goals(from_id, limit)` returns scheduling data for ids that still exist, skipping deleted ones, with `limit` at most 50. Testnet allows at most 200 entries read per transaction.
 - **S6 Events.** Event names and fields are a documented public interface.
   - Target Savings: `goal_created`, `deposited` (manual, scheduled or skim), `missed` (number of periods), `withdrawn` (amount, penalty, Loktin fee, integrator fee), `goal_closed`.
   - Spend & Save: `enrolled`, `settings_updated`, `saved` (spend, skim, destination, shortfall), `paid`, `withdrawn`, `enrollment_closed`.
-  - Both: `loktin_fee_set`, `fee_recipient_set`, `upgraded` (new Wasm hash, operator), plus OpenZeppelin's role and pause events. OpenZeppelin's upgrade function emits no event of its own, so `upgraded` is ours. The contract implements OpenZeppelin's `Upgradeable` trait exactly. A contract cannot read the new Wasm's metadata on chain, so the event carries no version string. The version is found by matching the Wasm hash to the attested release build (V4), which anyone can verify.
+  - Both: `loktin_fee_set`, `fee_recipient_set`, `fees_claimed` (recipient, amount; W63), `upgraded` (new Wasm hash, operator), plus OpenZeppelin's role and pause events. OpenZeppelin's upgrade function emits no event of its own, so `upgraded` is ours. The contract implements OpenZeppelin's `Upgradeable` trait exactly. A contract cannot read the new Wasm's metadata on chain, so the event carries no version string. The version is found by matching the Wasm hash to the attested release build (V4), which anyone can verify.
 - **S7 Error codes.** 1 to 99 shared, 100 to 199 Target Savings, 200 to 299 Spend & Save. Each code is documented and never reused. OpenZeppelin uses 1000 and above (pausable 1000 to 1001, access control 2000 to 2010).
 - **S8 Code safety.**
   - Checked arithmetic on every amount.
@@ -405,6 +411,7 @@ Built on Stellar's STRIDE template. Reviewed at every check under "did we do a g
 | DoS.3 | Spam goals | 20 open goals per user, creator pays rent, bounded paging (P10, S5) |
 | DoS.4 | An open goal is archived | Automatic restore and keeper extensions (S1) |
 | DoS.5 | Public RPC outage | Integrator chooses the RPC endpoint (G8) |
+| DoS.6 | An integrator or fee recipient that cannot receive the token (no trustline, or removed) blocks users' withdrawals; the fee-admin could cause this by setting such a recipient | Withdrawals pay only the user; fees accrue and recipients claim them (R2, S4, W63). Found by the local-network probe on 2026-10-24 |
 | Elevation.1 | Admin grants itself upgrader | Admin held by a multisig before mainnet; single key accepted on testnet |
 | Elevation.2 | Integrator raises its fee | Fee rates fixed at creation (R3) |
 | Elevation.3 | Fee-admin raises Loktin's fee | New goals only, capped at 1% (R3, R4) |
@@ -552,7 +559,7 @@ Agreed 2026-10-22. Stellar's testing guides (unit, auth, events, integration, te
   - Prove that a stranger's call is refused.
   - No blanket auth mocking in these tests.
 - **T3 Property tests** (proptest) over random sequences of create, deposit, collect, skim and withdraw. After every step these must hold:
-  - the sum of all recorded balances equals the contract's token balance;
+  - the sum of all recorded balances and accrued fees equals the contract's token balance (W63);
   - every payout plus its fees and penalty equals the principal withdrawn;
   - no goal closes while anything is owed (L5);
   - at most one collection per period (P3);
@@ -568,10 +575,12 @@ Agreed 2026-10-22. Stellar's testing guides (unit, auth, events, integration, te
   - local-time windows;
   - TRY_AGAIN_LATER retries;
   - a timeout returning pending without a second transaction.
-- **T8 End-to-end tests in CI on a private local network.**
-  - CI runs `stellar/quickstart` with `--local --limits testnet`, pinned by digest.
-  - It creates throwaway accounts funded by the local Friendbot and issues a test token.
-  - It deploys fresh instances with a 60-second minimum cadence and runs every user flow through the SDK, plus the keeper template container once.
+- **T8 End-to-end tests in CI on a private local network.** Amended 2026-10-26 (W66, W67).
+  - CI runs the `stellar/quickstart` fixed build `v678-b1525.1-latest`, pinned by its attested digest, with `docker run` and `--local --limits testnet --protocol-version 29 --enable core,rpc`, and waits for RPC health itself. The image's default local protocol is 28, so the version is set to match testnet. The official quickstart action is not used, because it pulls an unpinned action inside.
+  - It creates throwaway accounts funded by the local Friendbot and issues a test token (a classic asset and its Stellar Asset Contract), with the Stellar CLI and a temporary config directory.
+  - It deploys fresh instances with a 60-second minimum cadence and runs every user flow through the SDK in a separate Vitest suite, including a real collection, the closed-goal error-origin case, and an integrator account with no trustline (DoS.6). The keeper template container runs once (B8).
+  - Withdrawal-window tests run only when the current UTC day is 1 to 28, and are skipped with a logged reason otherwise, since ledger time cannot be moved on a real network.
+  - The `e2e` job becomes a required check after its first pass.
   - Nothing touches testnet, and no key outlives the run.
 - **T9 Testnet runs.** The owner deploys and runs scripted smoke flows with their own keys. Results are checked read-only.
 - **T10 Budgets.**
@@ -615,7 +624,11 @@ Agreed 2026-10-22.
   - Deploy both contracts with: Circle testnet USDC, a 1-day minimum cadence, a 0% Loktin fee, and the roles assigned.
   - Record the addresses in the SDK's testnet configuration through a pull request.
   - The reviewer then checks configuration, role holders and the Wasm hash against the attested build, read-only.
-- **V6 Testnet smoke script.** A script runs every user flow through the SDK with a test-user key funded from Friendbot and Circle's testnet USDC faucet. It writes every transaction hash to the evidence file. The owner runs it.
+- **V6 Testnet smoke script.** A script runs every user flow through the SDK with a test-user key funded from Friendbot and Circle's testnet USDC faucet. It writes every transaction hash to the evidence file. The owner runs it. Amended 2026-10-26 (W68):
+  - it signs through `stellar tx sign --sign-with-key <alias>`, so the secret stays in the Stellar CLI keystore;
+  - the owner creates the alias `loktin-sdk-smoke`, funds it, adds a USDC trustline and takes 20 USDC from the faucet;
+  - small amounts; hashes go to `evidence/testnet-smoke.json`;
+  - it also creates two evidence goals for the keeper (daily cadence, 1 USDC deposits, target 5 USDC, deadline about 7 days; one penalty rule, one lock rule), which must exist by 31 October.
 - **V7 Evidence keeper.**
   - A scheduled GitHub Actions workflow in this repo runs the keeper template container hourly, at an off-peak minute. GitHub's shortest schedule interval is 5 minutes, and runs can be delayed or dropped at busy times.
   - The keeper key is a repository Actions secret holding only XLM.
@@ -654,7 +667,7 @@ Agreed 2026-10-22. Each part: build, review, commit and merge by the owner. Date
 | B4 | Spend & Save contract, including P15, with tests | 27 Oct |
 | B5 | Repo goes public. Release Wasm build with SEP-55 attestation, deploy and smoke scripts. Owner deploys to testnet; reviewer verifies | 28 Oct |
 | B6 | SDK core and both primitive modules (K1 to K12) with tests T7, in three parts, each checked and merged on its own: 6a core, 6b the two modules and helpers, 6c the npm release workflow and package metadata. Preview `0.1.0` is published, on the owner's go-ahead. Amended 2026-10-23 (W54) | 30 Oct |
-| B7 | Local-network end-to-end tests in CI (T8). Owner runs the testnet smoke script and creates the evidence goals | 31 Oct |
+| B7 | In four parts. 7a: accrued fees in both contracts (W63) with tests and an upgrade decision note. Owner releases `contracts-v0.2.0` and upgrades the testnet contracts in place (W64). 7b: SDK `accruedFees` and `claimFees`, released as 0.2.0 through the staged CI flow (W65). 7c: local-network end-to-end tests in CI (T8). 7d: testnet smoke script; owner runs it and creates the evidence goals (V6). Amended 2026-10-26 | 31 Oct |
 | B8 | Keeper client and template; hourly evidence keeper. Owner adds the keeper secret | 1 Nov |
 | B9 | Docs in `loktin-docs` (second builder session) | 2 Nov |
 | B10 | Reference app repo and demo (second builder session) | 3 Nov |
