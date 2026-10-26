@@ -36,7 +36,10 @@ cleanup() {
   local status=$?
   if [ "$status" -ne 0 ]; then
     echo "== Last 200 lines of the network's log" >&2
-    docker logs --tail 200 "$CONTAINER" >&2 2>&1 || true
+    # Quickstart logs its network root secret key at startup. It only
+    # controls this throwaway network, but every secret key is masked.
+    docker logs --tail 200 "$CONTAINER" 2>&1 |
+      sed -E 's/S[A-Z2-7]{55}/S... (masked)/g' >&2 || true
   fi
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   exit "$status"
