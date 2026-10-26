@@ -3,7 +3,7 @@
 # Used locally and in CI. Every key is a throwaway on that network, kept in
 # a temporary folder outside the repo and deleted after the run.
 #
-# Usage: scripts/e2e.sh
+# Usage: scripts/e2e.sh [vitest options, such as --reporter=verbose]
 #
 # Build first: `stellar contract build`, then `npm run build`. Set E2E_PORT
 # to use a port other than 8000.
@@ -62,4 +62,4 @@ until curl -fsS -X POST "http://localhost:${PORT}/rpc" \
 done
 echo "healthy after $(($(date +%s) - started)) s"
 
-E2E_PORT="$PORT" npx vitest run --config vitest.e2e.config.js
+E2E_PORT="$PORT" npx vitest run --config vitest.e2e.config.js "$@"

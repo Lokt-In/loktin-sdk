@@ -1,6 +1,7 @@
 // The private local network, its throwaway accounts and the Stellar CLI,
 // shared by the end-to-end setup and tests.
 import { execFile } from 'node:child_process';
+import { join } from 'node:path';
 
 export const PASSPHRASE = 'Standalone Network ; February 2017';
 /** The Stellar CLI's name for the local network, in the temporary config. */
@@ -67,4 +68,58 @@ export function stellar(
       },
     );
   });
+}
+
+/**
+ * Deploys a fresh Target Savings and Spend & Save pair from the Wasm just
+ * built, with the setup's roles, a 1% Loktin fee and a 60-second minimum
+ * cadence.
+ */
+export async function deployInstance(
+  configDir: string,
+  addresses: Readonly<Record<Account, string>>,
+  token: string,
+): Promise<{ targetSavings: string; spendSave: string }> {
+  const wasm = (name: string) =>
+    join(process.cwd(), 'target', 'wasm32v1-none', 'release', `${name}.wasm`);
+  const roles = [
+    '--admin',
+    addresses.admin,
+    '--fee_admin',
+    addresses['fee-admin'],
+    '--pauser',
+    addresses.pauser,
+    '--upgrader',
+    addresses.upgrader,
+    '--token',
+    token,
+    '--fee_recipient',
+    addresses['fee-recipient'],
+    '--loktin_fee_bps',
+    String(LOKTIN_FEE_BPS),
+  ];
+  const deploy = (name: string, args: readonly string[]) =>
+    stellar(configDir, [
+      'contract',
+      'deploy',
+      '--wasm',
+      wasm(name),
+      '--source-account',
+      'deployer',
+      '--network',
+      NETWORK,
+      '--',
+      ...roles,
+      ...args,
+    ]);
+  const targetSavings = await deploy('loktin_target_savings', [
+    '--min_cadence',
+    String(MIN_CADENCE),
+  ]);
+  // An Option<Address> is passed as a JSON string.
+  const spendSave = await deploy('loktin_spend_save', [
+    '--target_savings',
+    `"${targetSavings}"`,
+  ]);
+  return { targetSavings, spendSave };
 }
