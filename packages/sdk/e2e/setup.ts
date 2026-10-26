@@ -9,10 +9,9 @@ import {
   ACCOUNTS,
   type Account,
   type E2EContext,
-  LOKTIN_FEE_BPS,
-  MIN_CADENCE,
   NETWORK,
   PASSPHRASE,
+  deployInstance,
   stellar,
 } from './local-network.js';
 
@@ -116,47 +115,11 @@ export default async function setup(project: {
       ...onLocal,
     ]);
 
-    // Fresh instances from the Wasm just built, charging a 1% Loktin fee.
-    const wasm = (name: string) =>
-      join(process.cwd(), 'target', 'wasm32v1-none', 'release', `${name}.wasm`);
-    const roles = [
-      '--admin',
-      addresses.admin,
-      '--fee_admin',
-      addresses['fee-admin'],
-      '--pauser',
-      addresses.pauser,
-      '--upgrader',
-      addresses.upgrader,
-      '--token',
+    const { targetSavings, spendSave } = await deployInstance(
+      configDir,
+      addresses,
       token,
-      '--fee_recipient',
-      addresses['fee-recipient'],
-      '--loktin_fee_bps',
-      String(LOKTIN_FEE_BPS),
-    ];
-    const deploy = (name: string, args: readonly string[]) =>
-      cli([
-        'contract',
-        'deploy',
-        '--wasm',
-        wasm(name),
-        '--source-account',
-        'deployer',
-        ...onLocal,
-        '--',
-        ...roles,
-        ...args,
-      ]);
-    const targetSavings = await deploy('loktin_target_savings', [
-      '--min_cadence',
-      String(MIN_CADENCE),
-    ]);
-    // An Option<Address> is passed as a JSON string.
-    const spendSave = await deploy('loktin_spend_save', [
-      '--target_savings',
-      `"${targetSavings}"`,
-    ]);
+    );
 
     project.provide('e2e', {
       configDir,
