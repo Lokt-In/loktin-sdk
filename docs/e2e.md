@@ -11,6 +11,7 @@ The tests start a local network, create throwaway accounts, issue a test token c
 - **Accrued fees:** an integrator with no trustline for the token cannot block withdrawals. Its fees accrue, its claim fails with `TOKEN_ERROR` 13 until it adds a trustline, then the claim pays out once and a second claim gives `NothingToClaim`.
 - **Error origin:** when the destination goal is closed, a payment to an account with no trustline is reported as the token's `TOKEN_ERROR` 13, not as `GoalNotFound`, and a skim aimed at the closed goal goes to the balance instead.
 - **Pause:** while Target Savings is paused, a new goal is refused with `EnforcedPause`, and a withdrawal and a fee claim still work.
+- **Goal creations in the same ledger:** ten users each create a goal at the same moment, and all ten succeed, some of them in the same ledger. Each goal's id comes from its owner and the owner's own counter, so creations by different users never touch the same entry.
 
 ### The multi-user scenario
 
@@ -18,11 +19,11 @@ The tests start a local network, create throwaway accounts, issue a test token c
 
 It then runs these steps:
 
-- the users create 60 goals, six each, split between the two integrators, with penalty and lock rules and the automatic allowance;
+- all ten users create their goals at the same time, six each, 60 in all, split between the two integrators, with penalty and lock rules and the automatic allowance;
 - half the goals are collected in period 1 and the rest are left out on purpose; in period 2 every goal is collected, and the left-out goals record one missed period;
 - the short user's collections fail with `Shortfall` and change nothing;
 - some goals are withdrawn, early with a penalty or once they reach their target;
-- every open goal is read back with `openGoals`, 50 at a time;
+- every goal is found again: its id from the `goal_created` events since the scenario started, and every open goal from `userGoals` for each user;
 - users enrol in Spend & Save, one with both integrators, save at the same time and withdraw;
 - one user's deposit and withdrawal on another user's goal are refused with `NotOwner`, and a skim aimed at another user's goal goes to the sender's own balance.
 
@@ -33,11 +34,9 @@ Users act at the same time, and each user sends one transaction at a time. After
 - only the users who acted have changed records;
 - each goal collected in a period records that period, and a second collection in it is refused.
 
-The file takes about five minutes, most of it waiting for the collection periods.
+Goal ids are not sequential, so the test does not page through them by number. It finds goals the way an app or keeper does: from the contract's `goal_created` events, and from `userGoals` for the users it knows.
 
-### Known limit
-
-Today, two goal creations in the same ledger conflict. Each is saved under the next goal id, which the contract reads when it runs, so only one succeeds. The others fail and change nothing. The tests therefore create goals one after another. A contract fix is planned (W75).
+The file takes about three minutes, most of it waiting for the collection periods.
 
 ## What you need
 
@@ -55,7 +54,7 @@ npm run test:e2e
 
 `npm run test:e2e` runs `scripts/e2e.sh`. It starts the network on port 8000 (set `E2E_PORT` to use another), waits for it to be ready, runs the tests one file after another, and always removes the container at the end. If a test fails, it first prints the last 200 lines of the network's log.
 
-A run takes about seven minutes, most of it waiting for collection periods.
+A run takes about six minutes, most of it waiting for collection periods.
 
 `npm test` runs only the unit tests, never these.
 
