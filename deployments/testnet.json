@@ -12,15 +12,39 @@
   "contracts": {
     "target_savings": {
       "id": "CCJH2IRI7JVZ7JV7J4XLUPVIPVMLG2HB7OBDQC2F3XLPVOVBH3QQVP4Z",
-      "wasm_hash": "5b67b75f7504bb748e7b4c891cbf956d381d923431c591a2e6bde072d50d047e",
-      "release_tag": "contracts-v0.1.0",
-      "commit": "d5fc95680bd443a5ee41020afd2b43eb9b7a91ca"
+      "wasm_hash": "9686da20b05d891a317272f92fce0fb2e9d75fa7f67ec5934452be827fe9a0a9",
+      "release_tag": "contracts-v0.2.0",
+      "commit": "475217b6d679b199e54dd5efde29a63ec38c39ef",
+      "history": [
+        {
+          "release_tag": "contracts-v0.1.0",
+          "wasm_hash": "5b67b75f7504bb748e7b4c891cbf956d381d923431c591a2e6bde072d50d047e",
+          "commit": "d5fc95680bd443a5ee41020afd2b43eb9b7a91ca"
+        },
+        {
+          "release_tag": "contracts-v0.2.0",
+          "wasm_hash": "9686da20b05d891a317272f92fce0fb2e9d75fa7f67ec5934452be827fe9a0a9",
+          "commit": "475217b6d679b199e54dd5efde29a63ec38c39ef"
+        }
+      ]
     },
     "spend_save": {
       "id": "CCUFRRPCCE7YVKTG3FWE2RAW5ACMU7KVACTVKDM452C5QFMABAXQTTCN",
-      "wasm_hash": "1e655573744740bfbbebbb04b7c54c9058e979c853bc23fe4f71431cc3999183",
-      "release_tag": "contracts-v0.1.0",
-      "commit": "d5fc95680bd443a5ee41020afd2b43eb9b7a91ca"
+      "wasm_hash": "d7a7bb028dca1db88cf78e5514ea99a48c8f373010c154862958153478020f95",
+      "release_tag": "contracts-v0.2.0",
+      "commit": "475217b6d679b199e54dd5efde29a63ec38c39ef",
+      "history": [
+        {
+          "release_tag": "contracts-v0.1.0",
+          "wasm_hash": "1e655573744740bfbbebbb04b7c54c9058e979c853bc23fe4f71431cc3999183",
+          "commit": "d5fc95680bd443a5ee41020afd2b43eb9b7a91ca"
+        },
+        {
+          "release_tag": "contracts-v0.2.0",
+          "wasm_hash": "d7a7bb028dca1db88cf78e5514ea99a48c8f373010c154862958153478020f95",
+          "commit": "475217b6d679b199e54dd5efde29a63ec38c39ef"
+        }
+      ]
     }
   }
 }
