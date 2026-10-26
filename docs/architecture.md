@@ -124,7 +124,7 @@ loktin-sdk/
 | Node | Development and releases use Node 24, because its bundled npm supports `min-release-age` (added in npm 11.10.0; Node 22 bundles npm 10.9). `.nvmrc` holds 24. CI runs the test suite on Node 22, 24 and 26. Published `engines.node` is `>=22.12.0`. |
 | Package manager | npm workspaces. `package-lock.json` is committed and CI installs with `npm ci`. |
 | `.npmrc` | `ignore-scripts=true`, `save-exact=true`, `min-release-age=7`. A package that needs an urgent fix may be listed in `min-release-age-exclude`, and that exemption is a recorded decision. A dependency that cannot work without an install script is a decision for the owner, never a silent change. |
-| TypeScript | 6.0.x, strict mode. Not 7.x until typescript-eslint supports it (8.72.0 supports typescript below 6.1.0). `skipLibCheck` stays false. The SDK package compiles with `lib: ["ES2022", "DOM"]`, because `@stellar/stellar-sdk` 17.2.1's own type files use DOM types (`Headers`, `URL`, `AbortSignal`, `RequestInit`). The SDK package does not use @types/node. Amended 2026-10-23 (W49). |
+| TypeScript | 6.0.x, strict mode. Not 7.x until typescript-eslint supports it (8.72.0 supports typescript below 6.1.0). `skipLibCheck` stays false. The SDK package compiles with `lib: ["ES2022", "DOM"]`, because `@stellar/stellar-sdk` 17.2.1's own type files use DOM types (`Headers`, `URL`, `AbortSignal`, `RequestInit`). The SDK package does not use @types/node. Amended 2026-10-23 (W49). Only the end-to-end tests use `@types/node` (pinned exactly, enabled in their own tsconfig alone), so the shipped SDK never sees Node types. Amended 2026-10-26 (W74). |
 | Lint and format | ESLint 10 with typescript-eslint 8 (type-aware rules), and Prettier 3. |
 | Tests | Vitest 5. Details in section 9. |
 | Module format | ESM only, with an `exports` map. Node 22.12 and later load ESM through `require()` by default, so CommonJS consumers on supported Node versions still work. |
@@ -357,6 +357,7 @@ Agreed 2026-10-22.
     - `create_goal`'s optional `allowance` (amount and expiry ledger) sets the token allowance for scheduled deposits within the same call and signature. Renewing an allowance later is a direct call to the token's `approve`.
     - anyone: `collect(goal_id)`;
     - reads: `goal`, `user_goals` (returns the full records of the user's open goals, at most 20), `open_goals(from_id, limit)`, `next_id`, `preview_withdraw`, configuration reads;
+    - goal ids from 0.3.0 (W75): a goal's id is derived from its owner and the owner's own goal counter (a hash cut to a u64), so `create_goal` only touches the owner's own entries and its storage keys are known when the call is simulated. The shared `NextId` write goes, and with it `next_id` and `open_goals`. Reason: with a shared counter, goal creations by different users in the same ledger conflict, and all but one fail (the key was derived from changing state, which Stellar's docs warn traps the call). Amended 2026-10-26.
     - fee-admin: `set_loktin_fee(bps, caller)`, `set_fee_recipient(address, caller)`;
     - pauser: `pause(caller)`, `unpause(caller)`;
     - upgrader: `upgrade(new_wasm_hash, operator)`;
@@ -372,6 +373,7 @@ Agreed 2026-10-22.
     - accrued fees are held in persistent storage, one entry per recipient, never temporary storage. An untouched entry is archived, never deleted, and restored by the next call that simulates it.
   - Exact argument types are fixed in the code and documented with the SDK (section 7).
 - **S5 Paging.** Goal ids are sequential. `open_goals(from_id, limit)` returns scheduling data for ids that still exist, skipping deleted ones, with `limit` at most 50. Testnet allows at most 200 entries read per transaction.
+  - From 0.3.0 (W75), sequential paging is replaced by discovery: goals are found from the `goal_created` and `goal_closed` events and from an integrator's own users through `user_goals` (at most 20 records each). This is Stellar's documented events-plus-indexer pattern, and it needs no shared on-chain index. Public RPC keeps about 7 days of events, so whoever indexes them keeps its own store. Amended 2026-10-26.
 - **S6 Events.** Event names and fields are a documented public interface.
   - Target Savings: `goal_created`, `deposited` (manual, scheduled or skim), `missed` (number of periods), `withdrawn` (amount, penalty, Loktin fee, integrator fee), `goal_closed`.
   - Spend & Save: `enrolled`, `settings_updated`, `saved` (spend, skim, destination, shortfall), `paid`, `withdrawn`, `enrollment_closed`.
@@ -514,11 +516,14 @@ Decisions:
 
 - **E1 Keeper client** (`@loktin/sdk/keeper`):
   - `scan` reads `next_id`, then pages `open_goals` (at most 50 per call) from a cursor the keeper keeps. It returns goals due now and goals whose TTL is below the threshold.
+  - From 0.3.0 (W75), `scan` builds the keeper's goal list from `goal_created` and `goal_closed` events, kept in the keeper's own store with an event cursor, and from the integrator's own users through `user_goals`. A keeper that was down longer than the RPC's event retention (about 7 days) rebuilds from its integrator's users. Amended 2026-10-26.
   - `collect(goalId)` simulates first and submits only if the simulation succeeds.
   - `extend` renews goals near expiry with ExtendFootprintTTLOp.
   - The SOW's "register and query scheduled actions" maps to the keeper's watch settings (integrator filter, cursor) and its scan results. Nothing is registered on chain, because none is needed (C3). The docs say so plainly.
 - **E2 Scope.** By default a keeper serves only goals created by its own integrator. An option serves all open goals.
 - **E3 Throughput.** One source account by default, with more channel accounts configurable. Every keeper account holds only XLM for fees.
+  - One account can send about one transaction per ledger: a second one sent before the first settles gets TRY_AGAIN_LATER (Stellar RPC docs). So throughput grows with channel accounts.
+  - Keeper at scale (W72): about 2,000 goals on the local network, a full sweep timed with 1, 2 and 4 channel accounts, and a keeper sizing table (goals per hour per account) published in the keeper docs. Amended 2026-10-26.
 - **E4 Keys.**
   - Keeper keys have no role and no power over funds (L15).
   - The key is read from a file path (a Docker secret). An environment variable is accepted as a documented, weaker fallback.
@@ -582,6 +587,12 @@ Agreed 2026-10-22. Stellar's testing guides (unit, auth, events, integration, te
   - Withdrawal-window tests run only when the current UTC day is 1 to 28, and are skipped with a logged reason otherwise, since ledger time cannot be moved on a real network.
   - The `e2e` job becomes a required check after its first pass.
   - Nothing touches testnet, and no key outlives the run.
+  - Multi-user scenario (W69, part 7c2), built on the same harness. Amended 2026-10-26:
+    - about 10 users across 2 integrators, with one user enrolled with both, and about 60 goals in mixed states (due, already collected, closed, short of funds, missed), so paging must go past 50;
+    - until 0.3.0, goal creations are sent one after another (W76). The W75 part adds a test where many users create goals in the same ledger and all succeed, and replaces the paging step with the new discovery. Amended 2026-10-26.
+    - writes from several users sent at the same time;
+    - after every step: the token balance equals all recorded balances plus accrued fees; each integrator accrued exactly its own fees and penalties; no user's action changed another user's records; each due goal was collected once;
+    - cross-user attempts (a deposit to, or a withdrawal of, another user's goal) are refused with NotOwner, and a skim aimed at another user's goal falls back to the sender's balance.
 - **T9 Testnet runs.** The owner deploys and runs scripted smoke flows with their own keys. Results are checked read-only.
 - **T10 Budgets.**
   - Each contract function's resource use, measured in tests, stays under 25% of the per-transaction limits, and a 50-goal page fits within them.
@@ -589,6 +600,17 @@ Agreed 2026-10-22. Stellar's testing guides (unit, auth, events, integration, te
   - The compressed SDK bundle size is measured once, then CI fails on growth above 10%.
   - Keeper goals per minute are measured on the local network.
   - The 25% and 10% thresholds are judgments.
+  - Speed and reliability targets (W70), our own judgments, since no published industry standard was found:
+    - reads: the SDK adds no more than about 50 ms of its own on the local network, and reads are under 1 s at the 95th percentile on the public testnet RPC from the owner's location (measured on 2026-10-26: p50 426 ms, p95 943 ms; the RPC is the integrator's choice, G8);
+    - writes: confirmed within 3 ledgers (about 15 s) at the 95th percentile on testnet, not counting the user's signing time;
+    - reliability: no failures except the user's own (such as low funds or a goal not yet due), up to a measured and published breaking point.
+  - Load and stress test (W71), on the local network only, whose `--limits testnet` matches testnet's resource limits. A separate workflow run by hand and weekly, so pull requests stay fast:
+    - load: ramp concurrent users, each with its own account (10, 25, 50, 100), recording success rate, p50 and p95 confirmation time, TRY_AGAIN_LATER retries and transactions per ledger;
+    - stress: keep ramping past normal levels until it degrades or fails, record the breaking point, and run the keeper sweep during the overload;
+    - recovery: afterwards the token balance equals all recorded balances plus accrued fees, no goal was collected twice, the keeper catches up without double-collecting, and no transaction is left stuck. Every SDK transaction has a 300 s upper time bound, and Stellar's docs say a transaction submitted after its time bounds cannot enter the transaction set.
+    - Never on the public testnet RPC, which Stellar's docs say is rate limited.
+  - Testnet latency sample (W73): about 300 reads and 50 writes in the owner's smoke run, paced to respect the rate limit, with p50 and p95 against the W70 targets in the evidence document.
+  - Resource limits are read live (Stellar docs: set by validator vote and changing over time). Testnet on 2026-10-26, protocol 29: 400,000,000 instructions per transaction and 580,000,000 per ledger; 200 entries read and 200 written per transaction; 2,000 contract transactions per ledger; 5 s target close. Mainnet limits are read live before any mainnet step.
 - **T11 Browser.** No browser test runner this sprint (Vitest browser mode needs Playwright or WebdriverIO). The SDK is smoke-tested in a real browser through the reference app, and the result is recorded.
 - **T12 Mutation testing.** `cargo mutants` runs on the contracts once before the stable release. Every surviving mutant gets a test or a written reason. Not in CI.
 - **T13 Fuzzing.** Deferred to before any mainnet deployment (it needs nightly Rust and long runs). The plan records it as required for mainnet.
@@ -629,9 +651,12 @@ Agreed 2026-10-22.
   - the owner creates the alias `loktin-sdk-smoke`, funds it, adds a USDC trustline and takes 20 USDC from the faucet;
   - small amounts; hashes go to `evidence/testnet-smoke.json`;
   - it also creates two evidence goals for the keeper (daily cadence, 1 USDC deposits, target 5 USDC, deadline about 7 days; one penalty rule, one lock rule), which must exist by 31 October.
+  - it uses two test users and two integrator addresses, all the owner's own aliases, so the evidence shows the multi-user case (W69);
+  - it records the testnet latency sample (W73).
 - **V7 Evidence keeper.**
   - A scheduled GitHub Actions workflow in this repo runs the keeper template container hourly, at an off-peak minute. GitHub's shortest schedule interval is 5 minutes, and runs can be delayed or dropped at busy times.
   - The keeper key is a repository Actions secret holding only XLM.
+  - Its hourly runs from 31 October also serve as a light soak test (W71).
 - **V8 Keeper template location.** It stays a folder in this repo, with "copy this folder" instructions. The evidence links to the folder.
 - **V9 Docs.**
   - An SDK section on docs.loktin.xyz (repo `Lokt-In/loktin-docs`):
@@ -667,11 +692,11 @@ Agreed 2026-10-22. Each part: build, review, commit and merge by the owner. Date
 | B4 | Spend & Save contract, including P15, with tests | 27 Oct |
 | B5 | Repo goes public. Release Wasm build with SEP-55 attestation, deploy and smoke scripts. Owner deploys to testnet; reviewer verifies | 28 Oct |
 | B6 | SDK core and both primitive modules (K1 to K12) with tests T7, in three parts, each checked and merged on its own: 6a core, 6b the two modules and helpers, 6c the npm release workflow and package metadata. Preview `0.1.0` is published, on the owner's go-ahead. Amended 2026-10-23 (W54) | 30 Oct |
-| B7 | In four parts. 7a: accrued fees in both contracts (W63) with tests and an upgrade decision note. Owner releases `contracts-v0.2.0` and upgrades the testnet contracts in place (W64). 7b: SDK `accruedFees` and `claimFees`, released as 0.2.0 through the staged CI flow (W65). 7c: local-network end-to-end tests in CI (T8). 7d: testnet smoke script; owner runs it and creates the evidence goals (V6). Amended 2026-10-26 | 31 Oct |
-| B8 | Keeper client and template; hourly evidence keeper. Owner adds the keeper secret | 1 Nov |
+| B7 | In four parts. 7a: accrued fees in both contracts (W63) with tests and an upgrade decision note. Owner releases `contracts-v0.2.0` and upgrades the testnet contracts in place (W64). 7b: SDK `accruedFees` and `claimFees`, released as 0.2.0 through the staged CI flow (W65). 7c: local-network end-to-end tests in CI (T8). 7c2: the multi-user scenario (W69), with creations sent one after another for now (W76). 7e: goal ids per owner (W75) in Target Savings 0.3.0 with its decision note and storage-compatibility test; owner releases `contracts-v0.3.0` and upgrades in place; SDK 0.3.0 without `nextId` and `openGoals`; the concurrent-creation test. 7d: testnet smoke script with two users and two integrators, plus the latency sample; owner runs it and creates the evidence goals (V6, W73), after 7e. Amended 2026-10-26 | 1 Nov |
+| B8 | Keeper client and template; hourly evidence keeper. Owner adds the keeper secret. Keeper at scale with the sizing table (E3, W72), first to keep if time runs short. Amended 2026-10-26 | 1 Nov |
 | B9 | Docs in `loktin-docs` (second builder session) | 2 Nov |
 | B10 | Reference app repo and demo (second builder session) | 3 Nov |
-| B11 | Measurements (T10), mutation testing (T12), evidence document, walkthrough draft, `1.0.0` release | 4 Nov |
+| B11 | Measurements (T10) with the speed targets, the load and stress test and its report (W70, W71), mutation testing (T12), evidence document, walkthrough draft, `1.0.0` release. Amended 2026-10-26 | 4 Nov |
 | Buffer | | 5 Nov |
 
 - **Critical path.** The keeper evidence needs collected deposits on testnet. With a 1-day minimum cadence, goals created by 31 October give several collections before 4 November. B5 to B7 must not slip.
