@@ -1,0 +1,84 @@
+{
+  "phase": "goals",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "rpcUrl": "https://soroban-testnet.stellar.org",
+    "targetSavings": "CCJH2IRI7JVZ7JV7J4XLUPVIPVMLG2HB7OBDQC2F3XLPVOVBH3QQVP4Z",
+    "spendSave": "CCUFRRPCCE7YVKTG3FWE2RAW5ACMU7KVACTVKDM452C5QFMABAXQTTCN",
+    "token": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"
+  },
+  "sdkVersion": "0.3.0",
+  "commit": "30bafe1494adda6a64d5efeb2cc0316736e8b6b3",
+  "startedAt": "2026-10-28T16:49:38.810Z",
+  "endedAt": "2026-10-28T16:49:50.245Z",
+  "complete": true,
+  "aliases": [
+    {
+      "role": "userA",
+      "alias": "loktin-smoke-user-a",
+      "address": "GCHOME3M4KSLKMW2QPWCFRCCKJDQBF6VKWU5JOFZMJV2QA6WYOA2TCDQ"
+    },
+    {
+      "role": "userB",
+      "alias": "loktin-smoke-user-b",
+      "address": "GBIEZ2GGV3AW2JYNMSOFLMDOXZBHVIOZP6QFZSVJWNGGWA3CAVS45ME4"
+    },
+    {
+      "role": "integratorA",
+      "alias": "loktin-smoke-integrator-a",
+      "address": "GBMV4UX5WH7N5THS365Y5YL244FYK4W75S25VBOL2FQQSX2KAI4PQ4BX"
+    },
+    {
+      "role": "integratorB",
+      "alias": "loktin-smoke-integrator-b",
+      "address": "GDLQBEVVOO35TFPREWQQYSKJJRODMNKNBDG7V52MPL4SBCSXLUJPEV7F"
+    }
+  ],
+  "steps": [
+    {
+      "label": "userA creates the evidence goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-a",
+      "hash": "6839a04a8e86df04fb6588cc81a475edc3b45f4408423e2e8780c0eaae9cd3e0",
+      "ledger": 5436509,
+      "feeCharged": "534585458",
+      "timeMs": 6989,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/6839a04a8e86df04fb6588cc81a475edc3b45f4408423e2e8780c0eaae9cd3e0"
+    },
+    {
+      "label": "userB creates the evidence goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-b",
+      "hash": "7da568b7abcafd514b24705d5b6cbc244b4fbaaf01280abea94521f6c26c8f3f",
+      "ledger": 5436510,
+      "feeCharged": "2513496",
+      "timeMs": 3055,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/7da568b7abcafd514b24705d5b6cbc244b4fbaaf01280abea94521f6c26c8f3f"
+    }
+  ],
+  "refusals": [],
+  "checks": [],
+  "skipped": [],
+  "goals": [
+    {
+      "user": "userA",
+      "id": "17153673323361593451",
+      "created": true,
+      "hash": "6839a04a8e86df04fb6588cc81a475edc3b45f4408423e2e8780c0eaae9cd3e0",
+      "allowance": "50000000",
+      "expiryLedger": 5574747,
+      "renewBy": null
+    },
+    {
+      "user": "userB",
+      "id": "11555261307189156897",
+      "created": true,
+      "hash": "7da568b7abcafd514b24705d5b6cbc244b4fbaaf01280abea94521f6c26c8f3f",
+      "allowance": "50000000",
+      "expiryLedger": 5574749,
+      "renewBy": null
+    }
+  ]
+}

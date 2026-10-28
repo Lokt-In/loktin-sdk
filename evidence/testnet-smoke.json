@@ -1,0 +1,946 @@
+{
+  "phase": "run",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "rpcUrl": "https://soroban-testnet.stellar.org",
+    "targetSavings": "CCJH2IRI7JVZ7JV7J4XLUPVIPVMLG2HB7OBDQC2F3XLPVOVBH3QQVP4Z",
+    "spendSave": "CCUFRRPCCE7YVKTG3FWE2RAW5ACMU7KVACTVKDM452C5QFMABAXQTTCN",
+    "token": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"
+  },
+  "sdkVersion": "0.3.0",
+  "commit": "30bafe1494adda6a64d5efeb2cc0316736e8b6b3",
+  "startedAt": "2026-10-28T17:03:19.696Z",
+  "endedAt": "2026-10-28T17:15:33.608Z",
+  "complete": true,
+  "aliases": [
+    {
+      "role": "userA",
+      "alias": "loktin-smoke-user-a",
+      "address": "GCHOME3M4KSLKMW2QPWCFRCCKJDQBF6VKWU5JOFZMJV2QA6WYOA2TCDQ"
+    },
+    {
+      "role": "userB",
+      "alias": "loktin-smoke-user-b",
+      "address": "GBIEZ2GGV3AW2JYNMSOFLMDOXZBHVIOZP6QFZSVJWNGGWA3CAVS45ME4"
+    },
+    {
+      "role": "integratorA",
+      "alias": "loktin-smoke-integrator-a",
+      "address": "GBMV4UX5WH7N5THS365Y5YL244FYK4W75S25VBOL2FQQSX2KAI4PQ4BX"
+    },
+    {
+      "role": "integratorB",
+      "alias": "loktin-smoke-integrator-b",
+      "address": "GDLQBEVVOO35TFPREWQQYSKJJRODMNKNBDG7V52MPL4SBCSXLUJPEV7F"
+    }
+  ],
+  "steps": [
+    {
+      "label": "userA creates a penalty goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-a",
+      "hash": "393f59c250e39a243fc05fd328bde5f1afed04478b4d372a8448ca07203e914e",
+      "ledger": 5436673,
+      "feeCharged": "1800187",
+      "timeMs": 5041,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/393f59c250e39a243fc05fd328bde5f1afed04478b4d372a8448ca07203e914e"
+    },
+    {
+      "label": "userA deposits into the penalty goal",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "2ba083f1f9ba3b7b3c90ee1d440a0e2d42392f4c637ac8a5c17b3680253b2040",
+      "ledger": 5436674,
+      "feeCharged": "105090",
+      "timeMs": 5901,
+      "signingMs": 18,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/2ba083f1f9ba3b7b3c90ee1d440a0e2d42392f4c637ac8a5c17b3680253b2040"
+    },
+    {
+      "label": "userB creates a penalty goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-b",
+      "hash": "ef9e63d1ec01385239238e657c2befdabf45daa473e73bef1f991fa5a5769559",
+      "ledger": 5436676,
+      "feeCharged": "1800187",
+      "timeMs": 8558,
+      "signingMs": 19,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/ef9e63d1ec01385239238e657c2befdabf45daa473e73bef1f991fa5a5769559"
+    },
+    {
+      "label": "userB deposits into the penalty goal",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "f8d9ed27da3c18dab58c011d0972a227ee41333611d7f7f6e03ccb176193c9c3",
+      "ledger": 5436677,
+      "feeCharged": "9583",
+      "timeMs": 3599,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/f8d9ed27da3c18dab58c011d0972a227ee41333611d7f7f6e03ccb176193c9c3"
+    },
+    {
+      "label": "userA withdraws the penalty goal early",
+      "call": "targetSavings.withdraw",
+      "actor": "loktin-smoke-user-a",
+      "hash": "053e85a2bae5b5293b1e6c7aa4fb35a3c1e29977c8a5b8a4205b4beff7a04b68",
+      "ledger": 5436678,
+      "feeCharged": "394323",
+      "timeMs": 4567,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/053e85a2bae5b5293b1e6c7aa4fb35a3c1e29977c8a5b8a4205b4beff7a04b68"
+    },
+    {
+      "label": "userB withdraws the penalty goal early",
+      "call": "targetSavings.withdraw",
+      "actor": "loktin-smoke-user-b",
+      "hash": "2d43a5dfe226d839cc220fbece9cbacc7d9703f2bdbd688045c4b3cad8a3c4c7",
+      "ledger": 5436679,
+      "feeCharged": "394323",
+      "timeMs": 31998,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/2d43a5dfe226d839cc220fbece9cbacc7d9703f2bdbd688045c4b3cad8a3c4c7"
+    },
+    {
+      "label": "userA creates a lock goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-a",
+      "hash": "8a6ae9482bc7f78983e33b88a8bc47c8ce858f9e7f0ca9e171ac2816b22637a0",
+      "ledger": 5436686,
+      "feeCharged": "1770098",
+      "timeMs": 8643,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/8a6ae9482bc7f78983e33b88a8bc47c8ce858f9e7f0ca9e171ac2816b22637a0"
+    },
+    {
+      "label": "userA deposits half of the lock goal",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "6a1a510a79560d09be467f5f61b4aa0d18de4f20b395f669315987d444891042",
+      "ledger": 5436688,
+      "feeCharged": "9577",
+      "timeMs": 9016,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/6a1a510a79560d09be467f5f61b4aa0d18de4f20b395f669315987d444891042"
+    },
+    {
+      "label": "userA deposits the rest of the lock goal",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "7d10e2f92959a84d8f5ee193a4afb137e4d0cf194ef33d8166f9fdee2a5b0a49",
+      "ledger": 5436689,
+      "feeCharged": "9577",
+      "timeMs": 4226,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/7d10e2f92959a84d8f5ee193a4afb137e4d0cf194ef33d8166f9fdee2a5b0a49"
+    },
+    {
+      "label": "userA withdraws the lock goal at its target",
+      "call": "targetSavings.withdraw",
+      "actor": "loktin-smoke-user-a",
+      "hash": "40303bced79bc654a5f8b00155a0cf218bec2669d964afea11b92827175d3b7b",
+      "ledger": 5436690,
+      "feeCharged": "13056",
+      "timeMs": 4296,
+      "signingMs": 16,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/40303bced79bc654a5f8b00155a0cf218bec2669d964afea11b92827175d3b7b"
+    },
+    {
+      "label": "userB creates a lock goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-b",
+      "hash": "46bedb156e01c3224df677a3380ffa5adf5260dc570e28b23b7e6a2ad1c8a4f9",
+      "ledger": 5436691,
+      "feeCharged": "1770098",
+      "timeMs": 3478,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/46bedb156e01c3224df677a3380ffa5adf5260dc570e28b23b7e6a2ad1c8a4f9"
+    },
+    {
+      "label": "userB deposits half of the lock goal",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "48f50640c49d6366c822d6eb94f925c5f4ea1a90a842ed5e95c5648b1a2d91b5",
+      "ledger": 5436692,
+      "feeCharged": "9577",
+      "timeMs": 5823,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/48f50640c49d6366c822d6eb94f925c5f4ea1a90a842ed5e95c5648b1a2d91b5"
+    },
+    {
+      "label": "userB deposits the rest of the lock goal",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "478d52e9c618abc443d2ada002545080e23aaa3b3718781a26fa0e920396611f",
+      "ledger": 5436694,
+      "feeCharged": "9577",
+      "timeMs": 6379,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/478d52e9c618abc443d2ada002545080e23aaa3b3718781a26fa0e920396611f"
+    },
+    {
+      "label": "userB withdraws the lock goal at its target",
+      "call": "targetSavings.withdraw",
+      "actor": "loktin-smoke-user-b",
+      "hash": "4239423cd44c514878b78d48dcd4ae43be42cfb7c06ada6e549158a728cb7fef",
+      "ledger": 5436695,
+      "feeCharged": "13056",
+      "timeMs": 5367,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/4239423cd44c514878b78d48dcd4ae43be42cfb7c06ada6e549158a728cb7fef"
+    },
+    {
+      "label": "userA enrols with integratorA",
+      "call": "spendSave.enroll",
+      "actor": "loktin-smoke-user-a",
+      "hash": "4e55b25aa46f26c45aca6809d1e8488c2e55663b6c93b87df3ce264fa06554d8",
+      "ledger": 5436696,
+      "feeCharged": "2670011",
+      "timeMs": 3914,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/4e55b25aa46f26c45aca6809d1e8488c2e55663b6c93b87df3ce264fa06554d8"
+    },
+    {
+      "label": "userA pays userB and saves the skim",
+      "call": "spendSave.payAndSave",
+      "actor": "loktin-smoke-user-a",
+      "hash": "884bb41e24a15fb58c2edc768e9f7b12975b4d16fa0e28b9b478da6bfe54b810",
+      "ledger": 5436697,
+      "feeCharged": "110533",
+      "timeMs": 4725,
+      "signingMs": 120,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/884bb41e24a15fb58c2edc768e9f7b12975b4d16fa0e28b9b478da6bfe54b810"
+    },
+    {
+      "label": "userA saves for a spend",
+      "call": "spendSave.saveForSpend",
+      "actor": "loktin-smoke-user-a",
+      "hash": "c07fe74c3554c31e48768c271061c9ed903685e15fe4ed9e65ad1599a5275e6d",
+      "ledger": 5436698,
+      "feeCharged": "10919",
+      "timeMs": 6077,
+      "signingMs": 16,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/c07fe74c3554c31e48768c271061c9ed903685e15fe4ed9e65ad1599a5275e6d"
+    },
+    {
+      "label": "userA creates the skim goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-a",
+      "hash": "5e6db3a102b53d5bc3c94abd0ac6de9eec461dda69e218c7d1693c55b287e84b",
+      "ledger": 5436700,
+      "feeCharged": "1800187",
+      "timeMs": 6861,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/5e6db3a102b53d5bc3c94abd0ac6de9eec461dda69e218c7d1693c55b287e84b"
+    },
+    {
+      "label": "userA enrols with integratorB into the skim goal",
+      "call": "spendSave.enroll",
+      "actor": "loktin-smoke-user-a",
+      "hash": "c4314bd8d21f732b5cd16298f6019d0b51f4759a47cef068c3d5098eff5d73d6",
+      "ledger": 5436702,
+      "feeCharged": "2278708",
+      "timeMs": 6197,
+      "signingMs": 18,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/c4314bd8d21f732b5cd16298f6019d0b51f4759a47cef068c3d5098eff5d73d6"
+    },
+    {
+      "label": "userA saves for a spend into the skim goal",
+      "call": "spendSave.saveForSpend",
+      "actor": "loktin-smoke-user-a",
+      "hash": "0fe577dfebaa9075244b41beda952a1c84ed04302ca5c71c1330b161f31af3cf",
+      "ledger": 5436703,
+      "feeCharged": "14332",
+      "timeMs": 4274,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/0fe577dfebaa9075244b41beda952a1c84ed04302ca5c71c1330b161f31af3cf"
+    },
+    {
+      "label": "userA withdraws the skim goal early",
+      "call": "targetSavings.withdraw",
+      "actor": "loktin-smoke-user-a",
+      "hash": "7ab27838c39cfd05bc8c47b7d18dab0c8d4d342ebd22bd29d0b7152c1d85a63c",
+      "ledger": 5436705,
+      "feeCharged": "13057",
+      "timeMs": 10315,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/7ab27838c39cfd05bc8c47b7d18dab0c8d4d342ebd22bd29d0b7152c1d85a63c"
+    },
+    {
+      "label": "integratorA claims its Target Savings fees",
+      "call": "targetSavings.claimFees",
+      "actor": "loktin-smoke-integrator-a",
+      "hash": "100a50bf1671c5bfc4f2f7167bc83de37127ec74339f6e1847859bb62811316d",
+      "ledger": 5436707,
+      "feeCharged": "8649",
+      "timeMs": 15782,
+      "signingMs": 16,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/100a50bf1671c5bfc4f2f7167bc83de37127ec74339f6e1847859bb62811316d"
+    },
+    {
+      "label": "integratorB claims its Target Savings fees",
+      "call": "targetSavings.claimFees",
+      "actor": "loktin-smoke-integrator-b",
+      "hash": "f998eca8e8b2d0623b5e0ef5168fb99606ce6f132962b96316ce96c2cbf7be3e",
+      "ledger": 5436712,
+      "feeCharged": "8649",
+      "timeMs": 16219,
+      "signingMs": 21,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/f998eca8e8b2d0623b5e0ef5168fb99606ce6f132962b96316ce96c2cbf7be3e"
+    },
+    {
+      "label": "userA creates the spare goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-a",
+      "hash": "fdd0c0ba112d4b1ee23e253639a7fd0a28b66b864739500d81fd3f91343d310f",
+      "ledger": 5436714,
+      "feeCharged": "1770098",
+      "timeMs": 9887,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/fdd0c0ba112d4b1ee23e253639a7fd0a28b66b864739500d81fd3f91343d310f"
+    },
+    {
+      "label": "userB creates the spare goal",
+      "call": "targetSavings.createGoal",
+      "actor": "loktin-smoke-user-b",
+      "hash": "d22dc94d0e6ebd7a5c43b002250e648979cb84a64e9c81cf30b2d210a8ec20b0",
+      "ledger": 5436716,
+      "feeCharged": "1770098",
+      "timeMs": 6428,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/d22dc94d0e6ebd7a5c43b002250e648979cb84a64e9c81cf30b2d210a8ec20b0"
+    },
+    {
+      "label": "sample write 1: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "28860c9f12d5b756be6a4773c894b8daa3b4ddc7b28cb81efda702af7e039ee7",
+      "ledger": 5436717,
+      "feeCharged": "9577",
+      "timeMs": 4820,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/28860c9f12d5b756be6a4773c894b8daa3b4ddc7b28cb81efda702af7e039ee7"
+    },
+    {
+      "label": "sample write 2: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "917a8ae7df874ceebb061d8216d9864c91f15996e434443e2e1e0899fe71d53a",
+      "ledger": 5436718,
+      "feeCharged": "9577",
+      "timeMs": 3392,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/917a8ae7df874ceebb061d8216d9864c91f15996e434443e2e1e0899fe71d53a"
+    },
+    {
+      "label": "sample write 3: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "8b6396371410f75e270622594eea738875800212da0f53918d577b6de1896a0a",
+      "ledger": 5436719,
+      "feeCharged": "9577",
+      "timeMs": 5483,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/8b6396371410f75e270622594eea738875800212da0f53918d577b6de1896a0a"
+    },
+    {
+      "label": "sample write 4: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "3651aacbb4119c10cf11ea0a68e9f5a5c9a0da8c45df0ab7fe5cb148d2705c44",
+      "ledger": 5436721,
+      "feeCharged": "9577",
+      "timeMs": 5684,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/3651aacbb4119c10cf11ea0a68e9f5a5c9a0da8c45df0ab7fe5cb148d2705c44"
+    },
+    {
+      "label": "sample write 5: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "6fa71c71162df0386d43119ec864087ba24c460da590b1404e6e59470a88a02b",
+      "ledger": 5436722,
+      "feeCharged": "9577",
+      "timeMs": 5525,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/6fa71c71162df0386d43119ec864087ba24c460da590b1404e6e59470a88a02b"
+    },
+    {
+      "label": "sample write 6: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "1022209c0178c1cc402d7dfd03f3112f639ccc84c2431a5a83d3d57a6eb47494",
+      "ledger": 5436724,
+      "feeCharged": "9577",
+      "timeMs": 8229,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/1022209c0178c1cc402d7dfd03f3112f639ccc84c2431a5a83d3d57a6eb47494"
+    },
+    {
+      "label": "sample write 7: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "f4004d401bd27b961c7ebe584dac97007ded5bf27550afa07b91c6473e817c04",
+      "ledger": 5436725,
+      "feeCharged": "9577",
+      "timeMs": 5035,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/f4004d401bd27b961c7ebe584dac97007ded5bf27550afa07b91c6473e817c04"
+    },
+    {
+      "label": "sample write 8: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "1db746c05e77fc448aa8a99348c58e36d2535a5e141546b4ad6d863ba06fbade",
+      "ledger": 5436726,
+      "feeCharged": "9577",
+      "timeMs": 4850,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/1db746c05e77fc448aa8a99348c58e36d2535a5e141546b4ad6d863ba06fbade"
+    },
+    {
+      "label": "sample write 9: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "e6dcf52d764e71a82602b1ec122d9e06431bca40789b3baad9211c81a834ba89",
+      "ledger": 5436727,
+      "feeCharged": "9577",
+      "timeMs": 5254,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/e6dcf52d764e71a82602b1ec122d9e06431bca40789b3baad9211c81a834ba89"
+    },
+    {
+      "label": "sample write 10: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "25083a774249ff817d8f2075d3ad55cf7cce054f829081ad62e8505ac162b927",
+      "ledger": 5436728,
+      "feeCharged": "9577",
+      "timeMs": 5499,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/25083a774249ff817d8f2075d3ad55cf7cce054f829081ad62e8505ac162b927"
+    },
+    {
+      "label": "sample write 11: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "f822ecebfa8bf1e978270b839ec6f6980168161da6bf80c216ac36fc08e0da6b",
+      "ledger": 5436730,
+      "feeCharged": "9577",
+      "timeMs": 7442,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/f822ecebfa8bf1e978270b839ec6f6980168161da6bf80c216ac36fc08e0da6b"
+    },
+    {
+      "label": "sample write 12: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "043b0f096b78e6265d2e96d82f7fdce7c03de5ba07aa8e4ee928f152d7e65ec2",
+      "ledger": 5436731,
+      "feeCharged": "9577",
+      "timeMs": 5410,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/043b0f096b78e6265d2e96d82f7fdce7c03de5ba07aa8e4ee928f152d7e65ec2"
+    },
+    {
+      "label": "sample write 13: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "211f24522a0e6c8f8019b1b9068554816b8d9db14c635cfdc49fc80f3af17464",
+      "ledger": 5436732,
+      "feeCharged": "9577",
+      "timeMs": 4095,
+      "signingMs": 16,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/211f24522a0e6c8f8019b1b9068554816b8d9db14c635cfdc49fc80f3af17464"
+    },
+    {
+      "label": "sample write 14: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "bd554a44881fc45292fabe4585b8a0998b447297f7e7ee46c202ab04173c6fcf",
+      "ledger": 5436733,
+      "feeCharged": "9577",
+      "timeMs": 10607,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/bd554a44881fc45292fabe4585b8a0998b447297f7e7ee46c202ab04173c6fcf"
+    },
+    {
+      "label": "sample write 15: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "dfe14e7bf8a40823a61874bac8cbd05d14b15c022ef6e4667ee2c1d1fa392c69",
+      "ledger": 5436736,
+      "feeCharged": "9577",
+      "timeMs": 27155,
+      "signingMs": 16,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/dfe14e7bf8a40823a61874bac8cbd05d14b15c022ef6e4667ee2c1d1fa392c69"
+    },
+    {
+      "label": "sample write 16: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "f9fba818004e2eb78fa317c5cf53d574f784e15b90ac9b289563005e7156db3f",
+      "ledger": 5436742,
+      "feeCharged": "9577",
+      "timeMs": 2406,
+      "signingMs": 16,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/f9fba818004e2eb78fa317c5cf53d574f784e15b90ac9b289563005e7156db3f"
+    },
+    {
+      "label": "sample write 17: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "0ef61d5cb545875b98d30b3e712657f5f609720a6799ebf378571d72294f3d63",
+      "ledger": 5436743,
+      "feeCharged": "9577",
+      "timeMs": 4880,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/0ef61d5cb545875b98d30b3e712657f5f609720a6799ebf378571d72294f3d63"
+    },
+    {
+      "label": "sample write 18: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "2ecc98e6f465d6497bba2ce68e13dfcfa6728b702ccd3334add505b5a3e8c006",
+      "ledger": 5436744,
+      "feeCharged": "9577",
+      "timeMs": 3709,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/2ecc98e6f465d6497bba2ce68e13dfcfa6728b702ccd3334add505b5a3e8c006"
+    },
+    {
+      "label": "sample write 19: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "3fd21e68b832a9352e7aac68dc6b0d5ef7a64c481507a4a376fe45436928ab17",
+      "ledger": 5436745,
+      "feeCharged": "9577",
+      "timeMs": 4489,
+      "signingMs": 17,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/3fd21e68b832a9352e7aac68dc6b0d5ef7a64c481507a4a376fe45436928ab17"
+    },
+    {
+      "label": "sample write 20: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "a3553063a70842efbef58bb94ce9040b21640b9e4f95f05441196b06a79b7843",
+      "ledger": 5436746,
+      "feeCharged": "9577",
+      "timeMs": 6906,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/a3553063a70842efbef58bb94ce9040b21640b9e4f95f05441196b06a79b7843"
+    },
+    {
+      "label": "sample write 21: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "bfd97a90c3ccac6fd6219e38f0c836f07327cac84c02b48b1579ea2aca30777c",
+      "ledger": 5436748,
+      "feeCharged": "9577",
+      "timeMs": 8702,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/bfd97a90c3ccac6fd6219e38f0c836f07327cac84c02b48b1579ea2aca30777c"
+    },
+    {
+      "label": "sample write 22: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "4110e3a3b2c1bb113088d2320e5419a7b5ab89f5036ae468eb2e13bb207b90e6",
+      "ledger": 5436749,
+      "feeCharged": "9577",
+      "timeMs": 4376,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/4110e3a3b2c1bb113088d2320e5419a7b5ab89f5036ae468eb2e13bb207b90e6"
+    },
+    {
+      "label": "sample write 23: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "52a04e2f21ae45b08daaa6a9ac1b01f9e4383fbfa61f3d3efc0ced4736fcfeae",
+      "ledger": 5436750,
+      "feeCharged": "9577",
+      "timeMs": 4227,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/52a04e2f21ae45b08daaa6a9ac1b01f9e4383fbfa61f3d3efc0ced4736fcfeae"
+    },
+    {
+      "label": "sample write 24: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "65d8f95aa7144e03db746961f4e88cb0bdd706825903574ba46992ffd9255803",
+      "ledger": 5436751,
+      "feeCharged": "9577",
+      "timeMs": 4993,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/65d8f95aa7144e03db746961f4e88cb0bdd706825903574ba46992ffd9255803"
+    },
+    {
+      "label": "sample write 25: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "cde3959e6a18f0b9197d092f63a4670f9650aeb07dabaf7d30f42470607869a8",
+      "ledger": 5436752,
+      "feeCharged": "9577",
+      "timeMs": 3923,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/cde3959e6a18f0b9197d092f63a4670f9650aeb07dabaf7d30f42470607869a8"
+    },
+    {
+      "label": "sample write 26: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "c285c7f6c031b097e0f39f5d77c8149f210f1f6a95a9de764029533b494dc4f9",
+      "ledger": 5436754,
+      "feeCharged": "9577",
+      "timeMs": 8787,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/c285c7f6c031b097e0f39f5d77c8149f210f1f6a95a9de764029533b494dc4f9"
+    },
+    {
+      "label": "sample write 27: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "cf0a0e7c99a8386222f660d43ee3cbe39d9280127c6f3bb7d34ab8ed9d23d163",
+      "ledger": 5436755,
+      "feeCharged": "9577",
+      "timeMs": 4607,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/cf0a0e7c99a8386222f660d43ee3cbe39d9280127c6f3bb7d34ab8ed9d23d163"
+    },
+    {
+      "label": "sample write 28: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "8bc7e8bf99f39d8ad9cbf21fdf34bcb6a347aa0944ccc9544cb7ba4d506b090b",
+      "ledger": 5436756,
+      "feeCharged": "9577",
+      "timeMs": 3567,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/8bc7e8bf99f39d8ad9cbf21fdf34bcb6a347aa0944ccc9544cb7ba4d506b090b"
+    },
+    {
+      "label": "sample write 29: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "7ebe5211b7db52f64160807928611fa966c4a895363e5a1cf755f653b634c092",
+      "ledger": 5436757,
+      "feeCharged": "9577",
+      "timeMs": 3991,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/7ebe5211b7db52f64160807928611fa966c4a895363e5a1cf755f653b634c092"
+    },
+    {
+      "label": "sample write 30: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "efd0c26562ffbef739d381f0b82d5990c0aebee6f12a85a0c111d58272746020",
+      "ledger": 5436758,
+      "feeCharged": "9577",
+      "timeMs": 5705,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/efd0c26562ffbef739d381f0b82d5990c0aebee6f12a85a0c111d58272746020"
+    },
+    {
+      "label": "sample write 31: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "46fb3e601b91cdc187fafb9c568f2e7bdbaa3feb081fdabe144d41b26432ecad",
+      "ledger": 5436760,
+      "feeCharged": "9577",
+      "timeMs": 8558,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/46fb3e601b91cdc187fafb9c568f2e7bdbaa3feb081fdabe144d41b26432ecad"
+    },
+    {
+      "label": "sample write 32: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "fed6a89de486be646f173dcc40bb6361853139e7b519b19ade647e4d1600c3ed",
+      "ledger": 5436761,
+      "feeCharged": "9577",
+      "timeMs": 4733,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/fed6a89de486be646f173dcc40bb6361853139e7b519b19ade647e4d1600c3ed"
+    },
+    {
+      "label": "sample write 33: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "e9669d056fac35a4031ae576e18e24ee752232451748f34a111f2aa978d5b036",
+      "ledger": 5436762,
+      "feeCharged": "9577",
+      "timeMs": 5030,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/e9669d056fac35a4031ae576e18e24ee752232451748f34a111f2aa978d5b036"
+    },
+    {
+      "label": "sample write 34: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "3b6d7545e02d117172e72eed4a3304920272eac98c205da7224dd4df36bbaf57",
+      "ledger": 5436763,
+      "feeCharged": "9577",
+      "timeMs": 3921,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/3b6d7545e02d117172e72eed4a3304920272eac98c205da7224dd4df36bbaf57"
+    },
+    {
+      "label": "sample write 35: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "8497edae2128f60f4eeb254efb1c9e386565a3be518c80d0dc1b318491b954b0",
+      "ledger": 5436764,
+      "feeCharged": "9577",
+      "timeMs": 5948,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/8497edae2128f60f4eeb254efb1c9e386565a3be518c80d0dc1b318491b954b0"
+    },
+    {
+      "label": "sample write 36: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "21b376f58fe6007a4b45f0f68248c26ca347fb2c9c854e7389b6e7cab5c93999",
+      "ledger": 5436765,
+      "feeCharged": "9577",
+      "timeMs": 3958,
+      "signingMs": 12,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/21b376f58fe6007a4b45f0f68248c26ca347fb2c9c854e7389b6e7cab5c93999"
+    },
+    {
+      "label": "sample write 37: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "c558874ea8392d888394064ae10cc5ec799581635c59b7c5ff0c75c042e7598b",
+      "ledger": 5436766,
+      "feeCharged": "9577",
+      "timeMs": 4668,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/c558874ea8392d888394064ae10cc5ec799581635c59b7c5ff0c75c042e7598b"
+    },
+    {
+      "label": "sample write 38: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "fe72ae814a8281384b7cc121a2d6e761c1700ae2dc1fb54d024a304bacffc29c",
+      "ledger": 5436767,
+      "feeCharged": "9577",
+      "timeMs": 4702,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/fe72ae814a8281384b7cc121a2d6e761c1700ae2dc1fb54d024a304bacffc29c"
+    },
+    {
+      "label": "sample write 39: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "1678b8d57aad5ebfd3563f040ad5a7826cff03556ad4913d65ae24965135c217",
+      "ledger": 5436768,
+      "feeCharged": "9577",
+      "timeMs": 3686,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/1678b8d57aad5ebfd3563f040ad5a7826cff03556ad4913d65ae24965135c217"
+    },
+    {
+      "label": "sample write 40: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "c516ccc7d77c85514abb1486642f09d82646443a05ac496b378f5fb698495988",
+      "ledger": 5436769,
+      "feeCharged": "9577",
+      "timeMs": 4804,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/c516ccc7d77c85514abb1486642f09d82646443a05ac496b378f5fb698495988"
+    },
+    {
+      "label": "sample write 41: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "82fb2fd9fabe2bd7d754c61e71f4aa0105efaba85e8b8209956f34cb2e3dd46a",
+      "ledger": 5436770,
+      "feeCharged": "9577",
+      "timeMs": 4770,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/82fb2fd9fabe2bd7d754c61e71f4aa0105efaba85e8b8209956f34cb2e3dd46a"
+    },
+    {
+      "label": "sample write 42: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "bdd98995f46eebbd4d82e39a39d9e6b0bb5e0a382424722d2a5cd5942debacb8",
+      "ledger": 5436771,
+      "feeCharged": "9577",
+      "timeMs": 4974,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/bdd98995f46eebbd4d82e39a39d9e6b0bb5e0a382424722d2a5cd5942debacb8"
+    },
+    {
+      "label": "sample write 43: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "f77c5a90e5b791db4a145ebebdf15995709370933dae5b986d33bc64a9cc8bb0",
+      "ledger": 5436772,
+      "feeCharged": "9577",
+      "timeMs": 4563,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/f77c5a90e5b791db4a145ebebdf15995709370933dae5b986d33bc64a9cc8bb0"
+    },
+    {
+      "label": "sample write 44: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "8c55be0a5e488a7b871162605395d985a6ed5d2fdb716670e8874bb3ccdd74c4",
+      "ledger": 5436773,
+      "feeCharged": "9577",
+      "timeMs": 5035,
+      "signingMs": 14,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/8c55be0a5e488a7b871162605395d985a6ed5d2fdb716670e8874bb3ccdd74c4"
+    },
+    {
+      "label": "sample write 45: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "e0195d11038fedbea868d406c9a8530288fe70be6e9ab1c73a202b3382e89806",
+      "ledger": 5436774,
+      "feeCharged": "9577",
+      "timeMs": 3899,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/e0195d11038fedbea868d406c9a8530288fe70be6e9ab1c73a202b3382e89806"
+    },
+    {
+      "label": "sample write 46: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "6409f7b66c38d589b3fbfc52452c4348c7773cef3a6ad144ba8cd0d7955ad9a4",
+      "ledger": 5436775,
+      "feeCharged": "9577",
+      "timeMs": 5141,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/6409f7b66c38d589b3fbfc52452c4348c7773cef3a6ad144ba8cd0d7955ad9a4"
+    },
+    {
+      "label": "sample write 47: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "d14c6ee469c235b4d20e0d0a8c4c1ef712fde41741555dc44628646d43546777",
+      "ledger": 5436776,
+      "feeCharged": "9577",
+      "timeMs": 4715,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/d14c6ee469c235b4d20e0d0a8c4c1ef712fde41741555dc44628646d43546777"
+    },
+    {
+      "label": "sample write 48: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "f21b15b9cfea67c2d56acc081d71fd0936442f40b0cbf871d34814df0ec0e9e2",
+      "ledger": 5436777,
+      "feeCharged": "9577",
+      "timeMs": 4659,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/f21b15b9cfea67c2d56acc081d71fd0936442f40b0cbf871d34814df0ec0e9e2"
+    },
+    {
+      "label": "sample write 49: userA deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-a",
+      "hash": "965b52da147006ce1c8da386971ecce6010a3e09ea37c642b73a2fa4c0dc2a25",
+      "ledger": 5436778,
+      "feeCharged": "9577",
+      "timeMs": 4834,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/965b52da147006ce1c8da386971ecce6010a3e09ea37c642b73a2fa4c0dc2a25"
+    },
+    {
+      "label": "sample write 50: userB deposits 0.01",
+      "call": "targetSavings.deposit",
+      "actor": "loktin-smoke-user-b",
+      "hash": "356f9f888b6b850b3f114805861acceef73a0baff7a30dceab2c8e9519e743d5",
+      "ledger": 5436779,
+      "feeCharged": "9577",
+      "timeMs": 5071,
+      "signingMs": 15,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/356f9f888b6b850b3f114805861acceef73a0baff7a30dceab2c8e9519e743d5"
+    },
+    {
+      "label": "userA withdraws the spare goal at its target",
+      "call": "targetSavings.withdraw",
+      "actor": "loktin-smoke-user-a",
+      "hash": "56cafaf47ae0001cc33673dc12518a562871a745cf3b468c9170486991a6aa0d",
+      "ledger": 5436780,
+      "feeCharged": "394322",
+      "timeMs": 3687,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/56cafaf47ae0001cc33673dc12518a562871a745cf3b468c9170486991a6aa0d"
+    },
+    {
+      "label": "userB withdraws the spare goal at its target",
+      "call": "targetSavings.withdraw",
+      "actor": "loktin-smoke-user-b",
+      "hash": "bcf2e7e5d24a55c3da924ec11ba9877a0c76c91bbf45ea51c5411548a7965c37",
+      "ledger": 5436781,
+      "feeCharged": "394322",
+      "timeMs": 4773,
+      "signingMs": 13,
+      "explorer": "https://stellar.expert/explorer/testnet/tx/bcf2e7e5d24a55c3da924ec11ba9877a0c76c91bbf45ea51c5411548a7965c37"
+    }
+  ],
+  "refusals": [
+    {
+      "label": "userB deposits into userA's penalty goal",
+      "code": "CONTRACT_ERROR",
+      "errorName": "NotOwner"
+    },
+    {
+      "label": "userA withdraws the lock goal before its target",
+      "code": "CONTRACT_ERROR",
+      "errorName": "Locked"
+    },
+    {
+      "label": "userB withdraws the lock goal before its target",
+      "code": "CONTRACT_ERROR",
+      "errorName": "Locked"
+    },
+    {
+      "label": "userA withdraws outside the window",
+      "code": "CONTRACT_ERROR",
+      "errorName": "OutsideWindow"
+    }
+  ],
+  "checks": [
+    {
+      "label": "the skim went into the goal",
+      "passed": true,
+      "detail": "toGoal 2000000, toBalance 0"
+    },
+    {
+      "label": "userA's only open goal is its evidence goal, and its allowance is not short",
+      "passed": true,
+      "detail": "1 open goal(s); allowance 50000000, next 10000000"
+    },
+    {
+      "label": "userB's only open goal is its evidence goal, and its allowance is not short",
+      "passed": true,
+      "detail": "1 open goal(s); allowance 50000000, next 10000000"
+    }
+  ],
+  "skipped": [],
+  "latency": {
+    "reads": {
+      "count": 300,
+      "p50Ms": 340,
+      "p95Ms": 831,
+      "maxMs": 1919
+    },
+    "writes": {
+      "count": 50,
+      "p50Ms": 4834,
+      "p95Ms": 8787,
+      "maxMs": 27155
+    },
+    "targets": {
+      "readP95Ms": 1000,
+      "writeP95Ms": 15000
+    },
+    "readsMeetTarget": true,
+    "writesMeetTarget": true
+  }
+}
