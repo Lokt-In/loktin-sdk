@@ -174,7 +174,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
                 },
                 {
-                  "u64": "2"
+                  "u64": "1852262199956569468"
                 }
               ]
             }
@@ -283,7 +283,7 @@
                     "symbol": "Goal"
                   },
                   {
-                    "u64": "1"
+                    "u64": "8727381940235605853"
                   }
                 ]
               },
@@ -324,7 +324,7 @@
                           "symbol": "id"
                         },
                         "val": {
-                          "u64": "1"
+                          "u64": "8727381940235605853"
                         }
                       },
                       {
@@ -442,7 +442,7 @@
                     "symbol": "Goal"
                   },
                   {
-                    "u64": "3"
+                    "u64": "13165041972159644287"
                   }
                 ]
               },
@@ -483,7 +483,7 @@
                           "symbol": "id"
                         },
                         "val": {
-                          "u64": "3"
+                          "u64": "13165041972159644287"
                         }
                       },
                       {
@@ -581,6 +581,33 @@
                     ]
                   }
                 ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 3111399
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARQG5",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "GoalsCreated"
+                  },
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "u64": "3"
               }
             }
           },
@@ -912,10 +939,10 @@
               "val": {
                 "vec": [
                   {
-                    "u64": "1"
+                    "u64": "8727381940235605853"
                   },
                   {
-                    "u64": "3"
+                    "u64": "13165041972159644287"
                   }
                 ]
               }
@@ -1001,18 +1028,6 @@
                             "val": "void"
                           }
                         ]
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "NextId"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "u64": "4"
                       }
                     },
                     {

@@ -27,9 +27,6 @@ import {
   toRawRule,
 } from './types.js';
 
-/** Most goals one page of `openGoals` returns (S5). */
-const MAX_PAGE = 50;
-
 /**
  * The allowance a new goal approves for its scheduled deposits: `'auto'`
  * works it out with {@link scheduledAllowance}, `'none'` approves nothing,
@@ -99,7 +96,8 @@ export class TargetSavings {
   }
 
   /**
-   * Creates a goal for `publicKey` and returns its id. With `'auto'`, the
+   * Creates a goal for `publicKey` and returns its id. Ids are not
+   * sequential: each comes from the owner and its own counter. With `'auto'`, the
    * allowance for scheduled deposits comes from {@link scheduledAllowance}
    * and costs one more RPC call. The deadline is rounded down to the second.
    */
@@ -294,7 +292,11 @@ export class TargetSavings {
     return adapter?.goal ? adapter.goal(id) : this.chain.goal(id);
   }
 
-  /** Returns the open goals of `owner`, at most 20. `owner` defaults to `publicKey`. */
+  /**
+   * Returns the open goals of `owner`, at most 20. `owner` defaults to
+   * `publicKey`. To find every goal, read the `goal_created` and
+   * `goal_closed` events instead.
+   */
   async userGoals(owner?: string): Promise<readonly Goal[]> {
     const address =
       owner === undefined
@@ -304,29 +306,6 @@ export class TargetSavings {
     return adapter?.userGoals
       ? adapter.userGoals(address)
       : this.chain.userGoals(address);
-  }
-
-  /**
-   * Returns the open goals with ids from `fromId` up to, but not including,
-   * `fromId + limit`, skipping closed ones. `limit` is 1 to 50.
-   */
-  async openGoals(fromId: bigint, limit: number): Promise<readonly Goal[]> {
-    const from = checkU64(fromId, 'fromId');
-    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE) {
-      throw new InvalidInputError(
-        `limit must be a whole number from 1 to ${String(MAX_PAGE)} (InvalidLimit)`,
-      );
-    }
-    const adapter = this.adapter;
-    return adapter?.openGoals
-      ? adapter.openGoals(from, limit)
-      : this.chain.openGoals(from, limit);
-  }
-
-  /** Returns the id the next goal will receive. */
-  async nextId(): Promise<bigint> {
-    const adapter = this.adapter;
-    return adapter?.nextId ? adapter.nextId() : this.chain.nextId();
   }
 
   /** Returns how a withdrawal of the goal would split right now. */
@@ -411,9 +390,6 @@ function chainReads(loktin: Loktin): Required<TargetSavingsReadAdapter> {
     goal: async (id) => toGoal(await read<RawGoal>('goal', { id })),
     userGoals: async (owner) =>
       (await read<RawGoal[]>('user_goals', { owner })).map(toGoal),
-    openGoals: async (from_id, limit) =>
-      (await read<RawGoal[]>('open_goals', { from_id, limit })).map(toGoal),
-    nextId: () => read<bigint>('next_id'),
     previewWithdraw: async (goal_id) =>
       toGoalWithdrawal(
         await read<RawWithdrawal>('preview_withdraw', { goal_id }),

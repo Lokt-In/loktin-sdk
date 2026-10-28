@@ -51,8 +51,18 @@ export interface LoktinOptions {
   /** The user's account, which builds and pays for writes. Needed only for writes. */
   readonly publicKey?: string;
   readonly readAdapter?: ReadAdapter;
-  /** A stellar-sdk RPC server to use instead of one built from `rpcUrl`. */
+  /**
+   * A stellar-sdk RPC server to use instead of one built from `rpcUrl`. The
+   * SDK leaves its settings untouched, including `requestTimeoutMs`.
+   */
   readonly server?: Server;
+  /**
+   * The time limit of every RPC request, in milliseconds: a positive whole
+   * number, 30,000 by default. A request that runs out of time is handled
+   * like any other failed request (K6). It applies to the server the SDK
+   * builds, not to one passed as `server`.
+   */
+  readonly requestTimeoutMs?: number;
 }
 
 /** Checked settings of one {@link createLoktin} instance. */
@@ -66,6 +76,7 @@ export interface ResolvedConfig {
   readonly publicKey: string | undefined;
   readonly readAdapter: ReadAdapter | undefined;
   readonly server: Server | undefined;
+  readonly requestTimeoutMs: number;
 }
 
 function contractId(value: unknown, label: string): string {
@@ -98,6 +109,21 @@ function checkRpcUrl(value: unknown): { rpcUrl: string; allowHttp: boolean } {
   throw new InvalidInputError(
     'rpcUrl must use https, or http on localhost or 127.0.0.1',
   );
+}
+
+/** The default time limit of every RPC request (K6). stellar-rpc caps a request at 25 s. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
+function checkTimeout(value: unknown): number {
+  if (value === undefined) {
+    return DEFAULT_REQUEST_TIMEOUT_MS;
+  }
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+    throw new InvalidInputError(
+      'requestTimeoutMs must be a positive whole number of milliseconds',
+    );
+  }
+  return value;
 }
 
 /** Checks the options before any network call. */
@@ -142,6 +168,7 @@ export function resolveConfig(options: LoktinOptions): ResolvedConfig {
   if (signer !== undefined && typeof signer.signTransaction !== 'function') {
     throw new InvalidInputError('signer.signTransaction must be a function');
   }
+  const requestTimeoutMs = checkTimeout(options.requestTimeoutMs);
 
   return {
     passphrase: network.passphrase,
@@ -153,5 +180,6 @@ export function resolveConfig(options: LoktinOptions): ResolvedConfig {
     publicKey,
     readAdapter: options.readAdapter,
     server: options.server,
+    requestTimeoutMs,
   };
 }

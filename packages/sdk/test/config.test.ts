@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import deployments from '../../../deployments/testnet.json' with { type: 'json' };
 import { InvalidInputError, TESTNET, createLoktin } from '../src/index.js';
-import { USER } from './fake-server.js';
+import { FakeServer, USER } from './fake-server.js';
 
 const LOCAL = {
   passphrase: 'Standalone Network ; February 2017',
@@ -136,5 +136,56 @@ describe('accounts and signers', () => {
     expect(() => createLoktin({ network: 'testnet', signer })).toThrow(
       /signTransaction/,
     );
+  });
+});
+
+describe('the request time limit', () => {
+  // Reads the server an instance uses, which the SDK keeps private.
+  const serverOf = (loktin: object) =>
+    (loktin as { server: { httpClient: { defaults: { timeout?: number } } } })
+      .server;
+
+  it('is 30,000 ms by default and keeps a valid value', () => {
+    expect(createLoktin({ network: 'testnet' }).config.requestTimeoutMs).toBe(
+      30_000,
+    );
+    expect(
+      createLoktin({ network: 'testnet', requestTimeoutMs: 1500 }).config
+        .requestTimeoutMs,
+    ).toBe(1500);
+  });
+
+  it('refuses anything but a positive whole number, before any network call', () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    try {
+      for (const requestTimeoutMs of [0, -1, 1.5, Number.NaN, '1000']) {
+        expect(() =>
+          createLoktin({
+            network: 'testnet',
+            requestTimeoutMs: requestTimeoutMs as number,
+          }),
+        ).toThrow(InvalidInputError);
+      }
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('is set on the server the SDK builds, and not on a passed server', () => {
+    const built = createLoktin({ network: 'testnet', requestTimeoutMs: 1500 });
+    expect(serverOf(built).httpClient.defaults.timeout).toBe(1500);
+
+    const server = new FakeServer();
+    const before = server.httpClient.defaults.timeout;
+    const passed = createLoktin({
+      network: 'testnet',
+      server,
+      requestTimeoutMs: 1500,
+    });
+    expect(serverOf(passed)).toBe(server);
+    expect(server.httpClient.defaults.timeout).toBe(before);
+    expect(before).not.toBe(1500);
   });
 });

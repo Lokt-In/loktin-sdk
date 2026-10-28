@@ -114,7 +114,7 @@ fn records_missed_periods_once_they_end() {
 #[test]
 fn shortfall_does_not_use_up_the_period() {
     let s = common::setup();
-    s.contract.create_goal(
+    let id = s.contract.create_goal(
         &s.owner,
         &10_000,
         &(START + 10 * WEEK),
@@ -128,19 +128,19 @@ fn shortfall_does_not_use_up_the_period() {
     s.set_time(START + WEEK);
     // Balance short by one unit.
     s.mint(&s.owner, 999);
-    assert_eq!(s.contract.try_collect(&1), Err(Ok(Error::Shortfall)));
-    assert_eq!(s.contract.goal(&1).last_collected_period, 0);
+    assert_eq!(s.contract.try_collect(&id), Err(Ok(Error::Shortfall)));
+    assert_eq!(s.contract.goal(&id).last_collected_period, 0);
     // The period stays collectible once the balance is there.
     s.mint(&s.owner, 1);
-    s.contract.collect(&1);
-    assert_eq!(s.contract.goal(&1).principal, 1_000);
+    s.contract.collect(&id);
+    assert_eq!(s.contract.goal(&id).principal, 1_000);
 }
 
 #[test]
 fn allowance_shortfall_does_not_use_up_the_period() {
     let s = common::setup();
     s.mint(&s.owner, 100_000);
-    s.contract.create_goal(
+    let id = s.contract.create_goal(
         &s.owner,
         &10_000,
         &(START + 10 * WEEK),
@@ -152,12 +152,12 @@ fn allowance_shortfall_does_not_use_up_the_period() {
         &s.allowance(999),
     );
     s.set_time(START + WEEK);
-    assert_eq!(s.contract.try_collect(&1), Err(Ok(Error::Shortfall)));
+    assert_eq!(s.contract.try_collect(&id), Err(Ok(Error::Shortfall)));
     let expiry = s.env.ledger().sequence() + 1_000;
     s.token
         .approve(&s.owner, &s.contract.address, &1_000, &expiry);
-    s.contract.collect(&1);
-    assert_eq!(s.contract.goal(&1).principal, 1_000);
+    s.contract.collect(&id);
+    assert_eq!(s.contract.goal(&id).principal, 1_000);
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn expired_allowance_is_a_shortfall() {
     let s = common::setup();
     s.mint(&s.owner, 100_000);
     let expiry = s.env.ledger().sequence() + 10;
-    s.contract.create_goal(
+    let id = s.contract.create_goal(
         &s.owner,
         &10_000,
         &(START + 10 * WEEK),
@@ -178,7 +178,7 @@ fn expired_allowance_is_a_shortfall() {
     );
     s.advance_ledgers(11);
     s.set_time(START + WEEK);
-    assert_eq!(s.contract.try_collect(&1), Err(Ok(Error::Shortfall)));
+    assert_eq!(s.contract.try_collect(&id), Err(Ok(Error::Shortfall)));
 }
 
 #[test]

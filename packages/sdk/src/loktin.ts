@@ -76,7 +76,8 @@ export interface Loktin {
   ledgerInfo(): Promise<LedgerInfo>;
 }
 
-// K9: a read is retried up to 3 times, on network errors only.
+// K9, K6: a read, and each step of a write before signing, is retried up to
+// 3 times, on network errors only.
 const READ_RETRY_DELAYS_MS = [500, 1000, 2000];
 // K6: TRY_AGAIN_LATER resends the same signed transaction up to 3 times.
 const RESEND_DELAYS_MS = [1000, 2000, 4000];
@@ -89,6 +90,17 @@ const WALLET_ERRORS: readonly [new (message: string) => Error, number][] = [
   [AssembledTransaction.Errors.InvalidClientRequest, -3],
   [AssembledTransaction.Errors.UserRejected, -4],
 ];
+
+// The RPC serves another network. Still a NETWORK error for callers, but
+// asking again cannot help, so it is never retried.
+class NetworkMismatchError extends NetworkError {}
+
+// K6, K9: a transport failure is worth another try; a mismatch is not.
+function retryable(error: unknown): boolean {
+  return (
+    error instanceof NetworkError && !(error instanceof NetworkMismatchError)
+  );
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -148,9 +160,15 @@ class LoktinInstance implements Loktin {
 
   constructor(config: ResolvedConfig) {
     this.config = config;
-    this.server =
-      config.server ??
-      new Server(config.rpcUrl, { allowHttp: config.allowHttp });
+    if (config.server !== undefined) {
+      this.server = config.server;
+    } else {
+      const server = new Server(config.rpcUrl, { allowHttp: config.allowHttp });
+      // stellar-sdk 17.2.1's Server ignores its `timeout` option, but its
+      // HTTP client honours this default on every request (K6, W81).
+      server.httpClient.defaults.timeout = config.requestTimeoutMs;
+      this.server = server;
+    }
   }
 
   async read<T = unknown>(
@@ -178,16 +196,17 @@ class LoktinInstance implements Loktin {
       );
     }
     // No network call for the Loktin contracts, whose specs are bundled.
-    const spec = await this.specFor(contract);
+    // The token's lookup is retried like the steps below.
+    const spec = await this.retrying(async () => this.specFor(contract));
     checkCall(spec, method, args);
-    await this.checkNetwork();
+    // K6 (W77): nothing is signed or sent before these steps, so each is
+    // retried on network errors as reads are.
+    await this.retrying(() => this.checkNetwork());
 
     // K5: built with the user's address, so the account is looked up.
-    const tx = await this.simulate(
-      this.client(this.writeClients, contract, spec, true),
-      spec,
-      method,
-      args,
+    const client = this.client(this.writeClients, contract, spec, true);
+    const tx = await this.retrying(() =>
+      this.simulate(client, spec, method, args),
     );
     const simulation = tx.simulation;
     if (simulation !== undefined && Api.isSimulationRestore(simulation)) {
@@ -235,14 +254,15 @@ class LoktinInstance implements Loktin {
     });
   }
 
-  // K9: retried up to 3 times, on network errors only.
+  // K9: retried up to 3 times, on network errors only. Used by reads and
+  // by the steps of a write before signing (K6).
   private async retrying<T>(call: () => Promise<T>): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
         return await call();
       } catch (error) {
         const delay = READ_RETRY_DELAYS_MS[attempt];
-        if (!(error instanceof NetworkError) || delay === undefined) {
+        if (!retryable(error) || delay === undefined) {
           throw error;
         }
         await sleep(delay);
@@ -392,7 +412,7 @@ class LoktinInstance implements Loktin {
         );
       }
       if (passphrase !== this.config.passphrase) {
-        throw new NetworkError(
+        throw new NetworkMismatchError(
           `the RPC serves the network "${passphrase}", not the configured "${this.config.passphrase}"`,
         );
       }

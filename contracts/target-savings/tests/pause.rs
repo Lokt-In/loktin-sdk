@@ -91,8 +91,6 @@ fn pause_never_blocks_withdraw_or_reads() {
     s.contract.pause(&s.pauser);
     assert_eq!(s.contract.goal(&id).principal, 5_000);
     assert_eq!(s.contract.user_goals(&s.owner).len(), 1);
-    assert_eq!(s.contract.open_goals(&1, &50).len(), 1);
-    assert_eq!(s.contract.next_id(), 2);
     assert_eq!(s.contract.token(), s.token.address);
     assert_eq!(s.contract.loktin_fee_bps(), 0);
     assert_eq!(s.contract.fee_recipient(), s.fee_recipient);

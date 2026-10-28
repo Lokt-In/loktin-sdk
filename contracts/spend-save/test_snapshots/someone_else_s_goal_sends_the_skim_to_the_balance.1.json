@@ -137,7 +137,7 @@
                       "symbol": "Goal"
                     },
                     {
-                      "u64": "1"
+                      "u64": "4783655084745835586"
                     }
                   ]
                 },
@@ -317,7 +317,7 @@
                     "symbol": "Goal"
                   },
                   {
-                    "u64": "1"
+                    "u64": "4783655084745835586"
                   }
                 ]
               },
@@ -358,7 +358,7 @@
                           "symbol": "id"
                         },
                         "val": {
-                          "u64": "1"
+                          "u64": "4783655084745835586"
                         }
                       },
                       {
@@ -456,6 +456,33 @@
                     ]
                   }
                 ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 3111399
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARQG5",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "GoalsCreated"
+                  },
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2ZMN"
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "u64": "1"
               }
             }
           },
@@ -787,7 +814,7 @@
               "val": {
                 "vec": [
                   {
-                    "u64": "1"
+                    "u64": "4783655084745835586"
                   }
                 ]
               }
@@ -879,18 +906,6 @@
                       "key": {
                         "vec": [
                           {
-                            "symbol": "NextId"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "u64": "2"
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
                             "symbol": "SchemaVersion"
                           }
                         ]
@@ -946,7 +961,7 @@
                               "symbol": "Goal"
                             },
                             {
-                              "u64": "1"
+                              "u64": "4783655084745835586"
                             }
                           ]
                         }

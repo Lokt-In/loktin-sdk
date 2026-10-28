@@ -7,7 +7,7 @@ A TypeScript SDK for Loktin's savings contracts on Stellar. It has no user inter
 
 ## Status
 
-- This is the preview release, `0.2.0`. Its API may change before `1.0.0`.
+- This is the preview release, `0.3.0`. Its API may change before `1.0.0`.
 - It works on Stellar testnet only. The contracts have no mainnet deployment, and the SDK refuses the public network.
 - It is designed for browsers and Node. Browser support will be confirmed with the reference app, and is not claimed yet.
 
@@ -42,6 +42,8 @@ const spendSave = new SpendSave(loktin, options);
 
 Here `userAddress`, `integratorAddress` and `wallet` come from your app. Every write acts for `publicKey`, and every input the contracts would refuse without needing chain data is refused before any network call.
 
+Every RPC request has a time limit of 30 seconds. Set `requestTimeoutMs` in `createLoktin` to change it. A request that runs out of time counts as a network error and is handled the same way. The limit applies to the RPC connection the SDK builds, not to a `server` you pass in.
+
 ## Target Savings
 
 `createGoal` creates a goal and returns its id. Amounts are `bigint` base units: USDC has 7 decimals, and `toBaseUnits` and `fromBaseUnits` convert to and from decimal strings.
@@ -68,6 +70,8 @@ await targetSavings.renewAllowance(goal.result);
 ```
 
 `creationBreakdown` shows what an early withdrawal of the whole target would pay out, before the user signs. `allowanceStatus` says whether the next scheduled deposit would be short on allowance.
+
+Goal ids are not sequential, and there is no paging by number. Use the id that `createGoal` returns. To find goals, call `userGoals(owner)` for each of your own users, at most 20 goals each, or read the contract's `goal_created` and `goal_closed` events into your own store.
 
 ## Spend & Save
 
@@ -124,16 +128,16 @@ for (const savings of [
 
 Every error the SDK throws is a `LoktinError` with a stable `code`:
 
-| Code                     | Meaning                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| `INVALID_INPUT`          | An input was refused before any network call.                                                 |
-| `CONTRACT_ERROR`         | Target Savings or Spend & Save refused the call with one of its documented codes.             |
-| `TOKEN_ERROR`            | The token contract refused the call, for example for a low balance or a missing trustline.    |
-| `UNKNOWN_CONTRACT_ERROR` | A contract error the SDK cannot name.                                                         |
-| `SIGNER_REFUSED`         | The wallet refused to sign, or failed while signing.                                          |
-| `NETWORK`                | The RPC could not be reached, or answered with an error.                                      |
-| `PENDING`                | The transaction was sent and its outcome is not known yet. Look it up by hash; do not resend. |
-| `TRANSACTION_FAILED`     | The transaction was sent and failed.                                                          |
+| Code                     | Meaning                                                                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_INPUT`          | An input was refused before any network call.                                                                                                  |
+| `CONTRACT_ERROR`         | Target Savings or Spend & Save refused the call with one of its documented codes.                                                              |
+| `TOKEN_ERROR`            | The token contract refused the call, for example for a low balance or a missing trustline.                                                     |
+| `UNKNOWN_CONTRACT_ERROR` | A contract error the SDK cannot name.                                                                                                          |
+| `SIGNER_REFUSED`         | The wallet refused to sign, or failed while signing.                                                                                           |
+| `NETWORK`                | The RPC could not be reached, or answered with an error, after the SDK's retries: 3 for a read, and 3 for each step of a write before signing. |
+| `PENDING`                | The transaction was sent and its outcome is not known yet. Look it up by hash; do not resend.                                                  |
+| `TRANSACTION_FAILED`     | The transaction was sent and failed.                                                                                                           |
 
 Each error is reported against the contract that raised it. The contract codes are listed in [docs/errors.md](https://github.com/Lokt-In/loktin-sdk/blob/main/docs/errors.md).
 

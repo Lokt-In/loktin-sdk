@@ -2,8 +2,10 @@
 // integrators and 60 goals in mixed states, with the money rules checked
 // after every step. The file deploys its own instance, so state left by
 // the other files cannot affect its sums.
-import { Keypair } from '@stellar/stellar-sdk/base';
+import { Keypair, scValToNative } from '@stellar/stellar-sdk/base';
 import { basicNodeSigner } from '@stellar/stellar-sdk/contract';
+import { Server } from '@stellar/stellar-sdk/rpc';
+import { ScVal } from '@stellar/stellar-sdk/xdr';
 import {
   ContractError,
   type Loktin,
@@ -12,7 +14,7 @@ import {
   toBaseUnits,
 } from '@loktin/sdk';
 import { SpendSave } from '@loktin/sdk/spend-save';
-import { type Goal, TargetSavings } from '@loktin/sdk/target-savings';
+import { TargetSavings } from '@loktin/sdk/target-savings';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   MIN_CADENCE,
@@ -61,6 +63,8 @@ interface ModelGoal {
 }
 
 let network: NetworkSettings;
+/** The ledger just before the scenario's first goal. */
+let startLedger = 0;
 let reader: Loktin;
 let users: User[] = [];
 let integrators: [string, string];
@@ -186,6 +190,7 @@ async function goalsMatchModel(): Promise<void> {
     const onChain = await savings.userGoals(user.address);
     const expected = goals
       .filter((goal) => goal.owner === user.index && goal.open)
+      .sort((a, b) => (a.id < b.id ? -1 : 1))
       .map((goal) => ({
         id: goal.id,
         owner: user.address,
@@ -196,7 +201,7 @@ async function goalsMatchModel(): Promise<void> {
       }));
     expect(
       [...onChain]
-        .sort((a, b) => Number(a.id - b.id))
+        .sort((a, b) => (a.id < b.id ? -1 : 1))
         .map((goal) => ({
           id: goal.id,
           owner: goal.owner,
@@ -386,14 +391,14 @@ describe('many users on one instance', () => {
     feeBps.set(integrators[1], 50);
   });
 
-  it('60 goals are created across users, one after another', async () => {
+  it('60 goals are created by all users at the same time', async () => {
     const before = await goalSnapshot();
+    startLedger = (await reader.ledgerInfo()).latestLedger;
     const deadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
-    // Two creations in one ledger conflict today: both are saved under the
-    // next id read at run time, so only one succeeds (W75, W76). Each
-    // creation waits for the previous one, taking the users in turn.
-    for (let k = 0; k < GOALS_PER_USER; k++) {
-      for (const user of users) {
+    // Every user creates at once, each user's six one after another. Ids
+    // come from each owner's own counter (W75), so no two conflict.
+    await perUser(users, async (user) => {
+      for (let k = 0; k < GOALS_PER_USER; k++) {
         const integrator = integrators[(user.index + k) % 2] ?? '';
         const depositSize = toBaseUnits(String(1 + (k % 3)));
         // Goal 4 needs only one and a half deposits, so its second
@@ -425,8 +430,9 @@ describe('many users on one instance', () => {
           start: 0,
         });
       }
-    }
+    });
     expect(goals).toHaveLength(USERS * GOALS_PER_USER);
+    expect(new Set(goals.map((goal) => goal.id)).size).toBe(goals.length);
     // The short user spends its whole balance on one manual deposit.
     const short = users[SHORT];
     const first = goals.find((goal) => goal.owner === SHORT && goal.k === 0);
@@ -487,18 +493,44 @@ describe('many users on one instance', () => {
     await afterStep(before, new Set(withdrawing.map((user) => user.index)));
   });
 
-  it('pages through every open goal, 50 at a time', async () => {
-    const savings = readSavings();
-    const nextId = await savings.nextId();
-    const seen: Goal[] = [];
-    let pages = 0;
-    for (let fromId = 1n; fromId < nextId; fromId += 50n) {
-      seen.push(...(await savings.openGoals(fromId, 50)));
-      pages += 1;
+  it('finds every goal from its events and from userGoals', async () => {
+    // Ids are not sequential, so goals are found from `goal_created`
+    // events and, for an integrator's own users, from `userGoals`.
+    const server = new Server(ctx.rpcUrl, { allowHttp: true });
+    const filters = [
+      {
+        type: 'contract' as const,
+        contractIds: [network.contracts.targetSavings],
+        topics: [[ScVal.scvSymbol('goal_created').toXdr('base64'), '*', '*']],
+      },
+    ];
+    const created: bigint[] = [];
+    let page = await server.getEvents({ startLedger, filters, limit: 50 });
+    for (;;) {
+      for (const event of page.events) {
+        const id = event.topic[1];
+        if (id === undefined) throw new Error('goal_created without an id');
+        created.push(scValToNative(id) as bigint);
+      }
+      if (page.events.length < 50) break;
+      page = await server.getEvents({
+        cursor: page.cursor,
+        filters,
+        limit: 50,
+      });
     }
-    expect(pages).toBeGreaterThanOrEqual(2);
-    expect(seen.map((goal) => goal.id)).toEqual(
-      goals.filter((goal) => goal.open).map((goal) => goal.id),
+    const byId = (a: bigint, b: bigint) => (a < b ? -1 : a > b ? 1 : 0);
+    expect(created.sort(byId)).toEqual(goals.map((goal) => goal.id).sort(byId));
+
+    const savings = readSavings();
+    const listed = (
+      await Promise.all(users.map((user) => savings.userGoals(user.address)))
+    ).flatMap((own) => own.map((goal) => goal.id));
+    expect(listed.sort(byId)).toEqual(
+      goals
+        .filter((goal) => goal.open)
+        .map((goal) => goal.id)
+        .sort(byId),
     );
   });
 

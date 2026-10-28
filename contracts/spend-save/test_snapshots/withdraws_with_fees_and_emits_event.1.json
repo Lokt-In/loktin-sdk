@@ -675,18 +675,6 @@
                       "key": {
                         "vec": [
                           {
-                            "symbol": "NextId"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "u64": "1"
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
                             "symbol": "SchemaVersion"
                           }
                         ]

@@ -1,6 +1,7 @@
 //! Stored types and storage access (S1, S2, S3).
 
 use loktin_common::ttl;
+use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{contracttype, Address, Env, Vec};
 
 use crate::error::Error;
@@ -12,8 +13,8 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// Most open goals one owner may hold (P10).
 pub const MAX_OPEN_GOALS: u32 = 20;
 
-/// Largest page `open_goals` returns (S5).
-pub const MAX_PAGE: u32 = 50;
+/// Most ids `create_goal` tries for one goal before giving up (W75).
+pub const MAX_ID_ATTEMPTS: u32 = 8;
 
 /// Instance configuration.
 #[contracttype]
@@ -45,7 +46,9 @@ pub enum GoalRecord {
 pub enum DataKey {
     /// Instance: [`Config`].
     Config,
-    /// Instance: the id the next goal receives.
+    /// Instance: the id the next goal received, up to 0.2.0. No longer read
+    /// or written; kept because instances deployed before 0.3.0 still hold
+    /// the entry.
     NextId,
     /// Persistent: one [`GoalRecord`] per open goal.
     Goal(u64),
@@ -54,6 +57,9 @@ pub enum DataKey {
     /// Persistent: the fees accrued to one recipient and not yet claimed
     /// (W63). Never temporary, so an untouched entry is archived, not lost.
     AccruedFees(Address),
+    /// Persistent: how many goal ids an owner has used (W75). It only ever
+    /// grows, even when goals close, so an id is never reused.
+    GoalsCreated(Address),
 }
 
 pub fn config(e: &Env) -> Result<Config, Error> {
@@ -67,15 +73,36 @@ pub fn set_config(e: &Env, config: &Config) {
     e.storage().instance().set(&DataKey::Config, config);
 }
 
-pub fn next_id(e: &Env) -> Result<u64, Error> {
+/// Returns how many goal ids `owner` has used, or 0.
+pub fn goals_created(e: &Env, owner: &Address) -> u64 {
     e.storage()
-        .instance()
-        .get(&DataKey::NextId)
-        .ok_or(Error::ConfigMissing)
+        .persistent()
+        .get(&DataKey::GoalsCreated(owner.clone()))
+        .unwrap_or(0)
 }
 
-pub fn set_next_id(e: &Env, id: u64) {
-    e.storage().instance().set(&DataKey::NextId, &id);
+/// Saves how many goal ids `owner` has used and extends the entry's TTL.
+pub fn set_goals_created(e: &Env, owner: &Address, count: u64) {
+    let key = DataKey::GoalsCreated(owner.clone());
+    e.storage().persistent().set(&key, &count);
+    ttl::extend_persistent(e, &key);
+}
+
+/// The goal id for `owner` and its counter value (W75): the first 8 bytes,
+/// big-endian, of `sha256(owner as XDR, then the counter as 8 big-endian
+/// bytes)`. It depends only on the arguments, so simulation sees the same
+/// key that execution writes.
+pub fn goal_id_for(e: &Env, owner: &Address, counter: u64) -> u64 {
+    let mut data = owner.clone().to_xdr(e);
+    data.extend_from_array(&counter.to_be_bytes());
+    let hash = e.crypto().sha256(&data).to_array();
+    let mut first = [0_u8; 8];
+    first.copy_from_slice(&hash[..8]);
+    u64::from_be_bytes(first)
+}
+
+pub fn has_goal(e: &Env, id: u64) -> bool {
+    e.storage().persistent().has(&DataKey::Goal(id))
 }
 
 pub fn goal(e: &Env, id: u64) -> Result<Goal, Error> {

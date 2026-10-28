@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## @loktin/sdk 0.3.0
+
+- Breaking: `nextId` and `openGoals` are removed from the Target Savings module and its read adapter. Goal ids are no longer sequential.
+- Find goals with `userGoals(owner)` for your own users, or from the `goal_created` and `goal_closed` events.
+- A write now retries its network check, account lookup and simulation on network errors, as reads do. Nothing is signed or sent before these steps.
+- Every RPC request now has a time limit, 30 seconds by default, set with `requestTimeoutMs`. A request that runs out of time is handled like any other failed request: reads and the steps of a write before signing retry it, and a send that runs out of time is reported as pending.
+
+## contracts 0.3.0
+
+Target Savings gives each goal an id derived from its owner and the owner's own goal counter, so goal creations by different users in the same ledger no longer conflict. `next_id` and `open_goals` are removed, and the new error `GoalIdUnavailable` (121) is added. Spend & Save changes only its version (decision 0003).
+
 ## @loktin/sdk 0.2.0
 
 - `accruedFees` and `claimFees` in both modules: an integrator or Loktin's fee recipient reads and claims the fees owed to it.

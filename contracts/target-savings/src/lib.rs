@@ -21,9 +21,11 @@ pub use crate::events::{
     DepositKind, Deposited, FeeRecipientSet, FeesClaimed, GoalClosed, GoalCreated, LoktinFeeSet,
     Missed, Upgraded, Withdrawn,
 };
-pub use crate::storage::{DataKey, Goal, GoalRecord, WithdrawalRule, MAX_OPEN_GOALS, MAX_PAGE};
+pub use crate::storage::{
+    DataKey, Goal, GoalRecord, WithdrawalRule, MAX_ID_ATTEMPTS, MAX_OPEN_GOALS,
+};
 
-contractmeta!(key = "binver", val = "0.2.0");
+contractmeta!(key = "binver", val = "0.3.0");
 
 /// How a withdrawal splits between its recipients.
 #[contracttype]
@@ -89,13 +91,14 @@ impl TargetSavings {
                 yield_source: None,
             },
         );
-        storage::set_next_id(e, 1);
         upgradeable::set_schema_version(e, storage::SCHEMA_VERSION);
         ttl::extend_instance(e);
         Ok(())
     }
 
-    /// Creates a goal for `owner` and returns its id. If `allowance` is
+    /// Creates a goal for `owner` and returns its id. The id comes from the
+    /// owner and the owner's own goal counter (W75), so creations by
+    /// different owners never touch the same entries. If `allowance` is
     /// `Some((amount, live_until_ledger))`, the owner also approves this
     /// contract to collect scheduled deposits, in the same call (S4).
     #[allow(clippy::too_many_arguments)]
@@ -150,8 +153,7 @@ impl TargetSavings {
             return Err(Error::TooManyGoals);
         }
 
-        let id = storage::next_id(e)?;
-        storage::set_next_id(e, id.checked_add(1).ok_or(Error::Overflow)?);
+        let id = new_goal_id(e, &owner)?;
         let goal = Goal {
             id,
             owner: owner.clone(),
@@ -394,29 +396,6 @@ impl TargetSavings {
         Ok(goals)
     }
 
-    /// Returns the open goals with ids from `from_id` up to, but not
-    /// including, `from_id + limit`, skipping closed ones (S5).
-    pub fn open_goals(e: &Env, from_id: u64, limit: u32) -> Result<Vec<Goal>, Error> {
-        if limit == 0 || limit > MAX_PAGE {
-            return Err(Error::InvalidLimit);
-        }
-        let end = from_id
-            .saturating_add(u64::from(limit))
-            .min(storage::next_id(e)?);
-        let mut goals = Vec::new(e);
-        for id in from_id..end {
-            if let Ok(goal) = storage::goal(e, id) {
-                goals.push_back(goal);
-            }
-        }
-        Ok(goals)
-    }
-
-    /// Returns the id the next goal will receive.
-    pub fn next_id(e: &Env) -> Result<u64, Error> {
-        storage::next_id(e)
-    }
-
     /// Returns how a withdrawal of the goal would split right now.
     pub fn preview_withdraw(e: &Env, goal_id: u64) -> Result<Withdrawal, Error> {
         breakdown(e, &storage::goal(e, goal_id)?)
@@ -514,6 +493,25 @@ impl Upgradeable for TargetSavings {
         .publish(e);
         upgradeable::upgrade(e, &new_wasm_hash);
     }
+}
+
+/// Picks the id of `owner`'s next goal and moves the owner's counter past
+/// it (W75). An id of 0, or one already taken, moves to the next counter
+/// value, at most [`MAX_ID_ATTEMPTS`] times. Every key read here depends
+/// only on the owner, so goals created by different owners in the same
+/// ledger never conflict.
+fn new_goal_id(e: &Env, owner: &Address) -> Result<u64, Error> {
+    let mut counter = storage::goals_created(e, owner);
+    for _ in 0..MAX_ID_ATTEMPTS {
+        let id = storage::goal_id_for(e, owner, counter);
+        if id != 0 && !storage::has_goal(e, id) {
+            let next = counter.checked_add(1).ok_or(Error::Overflow)?;
+            storage::set_goals_created(e, owner, next);
+            return Ok(id);
+        }
+        counter = counter.checked_add(1).ok_or(Error::Overflow)?;
+    }
+    Err(Error::GoalIdUnavailable)
 }
 
 fn add_principal(goal: &mut Goal, amount: i128) -> Result<(), Error> {

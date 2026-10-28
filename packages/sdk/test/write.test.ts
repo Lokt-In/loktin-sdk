@@ -126,20 +126,23 @@ describe('writes', () => {
   it('stop before signing when the RPC serves another network', async () => {
     server.passphrase = 'Public Global Stellar Network ; September 2015';
     const instance = loktin();
-    const error = await settle(
-      instance.write('target-savings', 'deposit', DEPOSIT),
-    );
+    // Awaited without moving the fake clock: a retry would wait forever.
+    const error = await instance
+      .write('target-savings', 'deposit', DEPOSIT)
+      .catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(NetworkError);
     expect((error as Error).message).toContain('not the configured');
     expect(signTransaction).not.toHaveBeenCalled();
     expect(server.methods()).toEqual(['getNetwork']);
 
-    // The instance keeps refusing, without asking again.
-    await settle(instance.write('target-savings', 'deposit', DEPOSIT));
+    // The instance keeps refusing at once, without asking again.
+    await expect(
+      instance.write('target-savings', 'deposit', DEPOSIT),
+    ).rejects.toBeInstanceOf(NetworkError);
     expect(server.methods()).toEqual(['getNetwork']);
   });
 
-  it('say both causes when the account cannot be loaded', async () => {
+  it('say both causes when the account cannot be loaded, after 3 retries', async () => {
     // stellar-sdk reports every lookup failure this way.
     server.accountError = new Error(`Account not found: ${USER}`);
     const error = await settle(
@@ -150,7 +153,13 @@ describe('writes', () => {
       `could not load account ${USER}: it may not exist on this network yet (an account is created by sending it XLM), or the RPC could not be reached`,
     );
     expect(signTransaction).not.toHaveBeenCalled();
-    expect(server.methods()).toEqual(['getNetwork', 'getAccount']);
+    expect(server.methods()).toEqual([
+      'getNetwork',
+      'getAccount',
+      'getAccount',
+      'getAccount',
+      'getAccount',
+    ]);
   });
 
   it('need publicKey and signer, checked before any network call', async () => {
@@ -394,5 +403,73 @@ describe('signers', () => {
     expect((error as Error).message).toContain(other);
     expect(signTransaction).not.toHaveBeenCalled();
     expect(server.methods()).not.toContain('sendTransaction');
+  });
+});
+
+describe('retries before signing (K6, W77)', () => {
+  const count = (method: string) =>
+    server.methods().filter((called) => called === method).length;
+
+  function queueSuccess(): void {
+    server.sends.push(sendResponse('PENDING'));
+    server.polls.push(success(ScVal.scvVoid()));
+  }
+
+  it('retry an account lookup that fails twice, and sign once', async () => {
+    server.accountErrors.push(
+      new Error(`Account not found: ${USER}`),
+      new Error(`Account not found: ${USER}`),
+    );
+    queueSuccess();
+    const result = await settle(
+      loktin().write('target-savings', 'deposit', DEPOSIT),
+    );
+    expect(result).toMatchObject({ result: null });
+    expect(count('getAccount')).toBe(3);
+    expect(signTransaction).toHaveBeenCalledOnce();
+  });
+
+  it('retry a network check that fails once', async () => {
+    server.networkErrors.push(new Error('fetch failed'));
+    queueSuccess();
+    const result = await settle(
+      loktin().write('target-savings', 'deposit', DEPOSIT),
+    );
+    expect(result).toMatchObject({ result: null });
+    expect(count('getNetwork')).toBe(2);
+    expect(signTransaction).toHaveBeenCalledOnce();
+  });
+
+  it('retry a simulation that fails once with a network error', async () => {
+    server.simulations.length = 0;
+    server.simulations.push(
+      new Error('fetch failed'),
+      simulationSuccess(ScVal.scvVoid()),
+    );
+    queueSuccess();
+    const result = await settle(
+      loktin().write('target-savings', 'deposit', DEPOSIT),
+    );
+    expect(result).toMatchObject({ result: null });
+    expect(count('simulateTransaction')).toBe(2);
+    expect(signTransaction).toHaveBeenCalledOnce();
+  });
+
+  it('never retry a contract error from simulation', async () => {
+    server.simulations.length = 0;
+    server.simulations.push(
+      simulationFailure('HostError', [
+        errorEvent(TESTNET.contracts.targetSavings, 100),
+      ]),
+    );
+    const error = await settle(
+      loktin().write('target-savings', 'deposit', DEPOSIT),
+    );
+    expect(error).toMatchObject({
+      code: 'CONTRACT_ERROR',
+      errorName: 'GoalNotFound',
+    });
+    expect(count('simulateTransaction')).toBe(1);
+    expect(signTransaction).not.toHaveBeenCalled();
   });
 });

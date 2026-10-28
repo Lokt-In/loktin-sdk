@@ -172,7 +172,7 @@
                     "symbol": "Goal"
                   },
                   {
-                    "u64": "1"
+                    "u64": "8727381940235605853"
                   }
                 ]
               },
@@ -213,7 +213,7 @@
                           "symbol": "id"
                         },
                         "val": {
-                          "u64": "1"
+                          "u64": "8727381940235605853"
                         }
                       },
                       {
@@ -311,6 +311,33 @@
                     ]
                   }
                 ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 3111399
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARQG5",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "GoalsCreated"
+                  },
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "u64": "1"
               }
             }
           },
@@ -642,7 +669,7 @@
               "val": {
                 "vec": [
                   {
-                    "u64": "1"
+                    "u64": "8727381940235605853"
                   }
                 ]
               }
@@ -728,18 +755,6 @@
                             "val": "void"
                           }
                         ]
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "NextId"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "u64": "2"
                       }
                     },
                     {

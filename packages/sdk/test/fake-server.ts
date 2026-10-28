@@ -231,6 +231,10 @@ export class FakeServer extends Server {
   readonly polls: Responder<Api.GetTransactionResponse>[] = [];
   /** When set, getAccount fails with it. */
   accountError: Error | undefined;
+  /** One-off failures of getAccount, used up in order before `accountError`. */
+  readonly accountErrors: Error[] = [];
+  /** One-off failures of getNetwork, used up in order. */
+  readonly networkErrors: Error[] = [];
   /** When set, answers simulations by the call, before the queue. */
   simulateBy:
     | ((call: Invocation) => Api.SimulateTransactionResponse | undefined)
@@ -258,6 +262,10 @@ export class FakeServer extends Server {
 
   override getNetwork(): Promise<Api.GetNetworkResponse> {
     this.calls.push({ method: 'getNetwork' });
+    const error = this.networkErrors.shift();
+    if (error !== undefined) {
+      return Promise.reject(error);
+    }
     return Promise.resolve({
       passphrase: this.passphrase,
       protocolVersion: '25',
@@ -266,8 +274,9 @@ export class FakeServer extends Server {
 
   override getAccount(address: string): Promise<Account> {
     this.calls.push({ method: 'getAccount' });
-    if (this.accountError !== undefined) {
-      return Promise.reject(this.accountError);
+    const error = this.accountErrors.shift() ?? this.accountError;
+    if (error !== undefined) {
+      return Promise.reject(error);
     }
     return Promise.resolve(new Account(address, '100'));
   }
