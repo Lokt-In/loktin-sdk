@@ -1,10 +1,15 @@
 name: Evidence keeper
 
-# One keeper pass every hour (V7, W100): collects the testnet evidence
-# goals' scheduled deposits. Its logs are the keeper evidence (E11).
+# Four keeper passes an hour (V7, W100, W109): collects the testnet
+# evidence goals' scheduled deposits. GitHub can delay or drop a scheduled
+# run when it is busy, so four times away from the top of the hour keep a
+# missed run from losing a whole hour. Its logs are the keeper evidence (E11).
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '7 * * * *'
+    - cron: '22 * * * *'
+    - cron: '37 * * * *'
+    - cron: '52 * * * *'
   workflow_dispatch:
 
 permissions:
