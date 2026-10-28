@@ -440,7 +440,10 @@ async function goalsPhase(
       );
       continue;
     }
-    const deadline = new Date(ctx.clock.now().getTime() + 7 * DAY * 1000);
+    // 7 days and a 1-hour margin, so the goal keeps all 7 periods (W102).
+    const deadline = new Date(
+      ctx.clock.now().getTime() + (7 * DAY + 3600) * 1000,
+    );
     const { result } = await recorder.write(
       `${user} creates the evidence goal`,
       'targetSavings.createGoal',
