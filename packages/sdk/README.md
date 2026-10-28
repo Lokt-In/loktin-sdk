@@ -7,7 +7,7 @@ A TypeScript SDK for Loktin's savings contracts on Stellar. It has no user inter
 
 ## Status
 
-- This is the preview release, `0.3.0`. Its API may change before `1.0.0`.
+- This is the preview release, `0.4.0`. Its API may change before `1.0.0`.
 - It works on Stellar testnet only. The contracts have no mainnet deployment, and the SDK refuses the public network.
 - It is designed for browsers and Node. Browser support will be confirmed with the reference app, and is not claimed yet.
 
@@ -121,6 +121,44 @@ for (const savings of [
     const claimed = await savings.claimFees();
     console.log('Claimed', fromBaseUnits(claimed.result), 'USDC');
   }
+}
+```
+
+## For keepers
+
+A keeper collects the scheduled deposits of Target Savings goals when they are due. Anyone may collect a due goal, and the collect can only move the due amount from the owner's wallet into the owner's goal. The keeper's account needs only XLM for fees.
+
+`@loktin/sdk/keeper` has the parts of a keeper:
+
+- `scanGoals` finds the goals a keeper serves: the open goals of the given integrators, from the contract's `goal_created` and `goal_closed` events, plus the open goals of an optional list of owners.
+- `isDue` tells from a goal's stored data whether it can be collected now.
+- `runPass` runs one pass: it scans, then collects each due goal one at a time. The contract's expected refusals, such as `NotDue` or `Shortfall`, are skips. Any other error stops the pass and is reported in `failure`.
+- `feeCeilingSigner` wraps the keeper's signer so it refuses a transaction whose fee is above a ceiling. A refused collect is a skip.
+
+```ts
+import { TESTNET } from '@loktin/sdk';
+import { feeCeilingSigner, runPass } from '@loktin/sdk/keeper';
+
+// The keeper's own SDK instance, with its address and its wallet.
+const keeperLoktin = createLoktin({
+  network: 'testnet',
+  publicKey: keeperAddress,
+  signer: {
+    // Refuse any transaction whose fee is above 1 XLM.
+    signTransaction: feeCeilingSigner(
+      (xdr, opts) => keeperWallet.signTransaction(xdr, opts),
+      10_000_000n,
+      TESTNET.passphrase,
+    ),
+  },
+});
+
+const pass = await runPass(keeperLoktin, { integrators: [integratorAddress] });
+for (const result of pass.results) {
+  console.log(result.goalId, result.action);
+}
+if (pass.failure !== undefined) {
+  console.log('The pass stopped:', pass.failure.code, pass.failure.message);
 }
 ```
 

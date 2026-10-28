@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- New `@loktin/sdk/keeper` export: scan the goals a keeper serves from events and owner lists, tell which are due, and run one collection pass, with a fee ceiling for the keeper's signer.
+## @loktin/sdk 0.4.0
+
+- New `@loktin/sdk/keeper` export for running a keeper. A keeper pass finds the goals the keeper serves from the contract's events, plus an optional list of owners, collects each goal that is due, and logs the contract's expected refusals as skips. `feeCeilingSigner` wraps the keeper's signer so it refuses a transaction whose fee is above a ceiling. The keeper template comes separately.
 
 ## @loktin/sdk 0.3.0
 

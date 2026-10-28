@@ -8,6 +8,8 @@ declare const integratorAddress: string;
 declare const shopAddress: string;
 declare const wallet: { signTransaction: SignTransaction };
 declare const integratorWallet: { signTransaction: SignTransaction };
+declare const keeperAddress: string;
+declare const keeperWallet: { signTransaction: SignTransaction };
 
 // README: Quick start
 import { createLoktin } from '@loktin/sdk';
@@ -83,6 +85,33 @@ for (const savings of [
     const claimed = await savings.claimFees();
     console.log('Claimed', fromBaseUnits(claimed.result), 'USDC');
   }
+}
+// README: end
+
+// README: For keepers
+import { TESTNET } from '@loktin/sdk';
+import { feeCeilingSigner, runPass } from '@loktin/sdk/keeper';
+
+// The keeper's own SDK instance, with its address and its wallet.
+const keeperLoktin = createLoktin({
+  network: 'testnet',
+  publicKey: keeperAddress,
+  signer: {
+    // Refuse any transaction whose fee is above 1 XLM.
+    signTransaction: feeCeilingSigner(
+      (xdr, opts) => keeperWallet.signTransaction(xdr, opts),
+      10_000_000n,
+      TESTNET.passphrase,
+    ),
+  },
+});
+
+const pass = await runPass(keeperLoktin, { integrators: [integratorAddress] });
+for (const result of pass.results) {
+  console.log(result.goalId, result.action);
+}
+if (pass.failure !== undefined) {
+  console.log('The pass stopped:', pass.failure.code, pass.failure.message);
 }
 // README: end
 
