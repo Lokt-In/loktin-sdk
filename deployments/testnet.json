@@ -12,9 +12,9 @@
   "contracts": {
     "target_savings": {
       "id": "CCJH2IRI7JVZ7JV7J4XLUPVIPVMLG2HB7OBDQC2F3XLPVOVBH3QQVP4Z",
-      "wasm_hash": "9686da20b05d891a317272f92fce0fb2e9d75fa7f67ec5934452be827fe9a0a9",
-      "release_tag": "contracts-v0.2.0",
-      "commit": "475217b6d679b199e54dd5efde29a63ec38c39ef",
+      "wasm_hash": "ccafed3e94e9d9af6b3a72d31e85050bc357168552c8745a9314ea79e29e0b3e",
+      "release_tag": "contracts-v0.3.0",
+      "commit": "a91b9eec00eb3a4af04cf3492f2b193e1328df28",
       "history": [
         {
           "release_tag": "contracts-v0.1.0",
@@ -25,14 +25,19 @@
           "release_tag": "contracts-v0.2.0",
           "wasm_hash": "9686da20b05d891a317272f92fce0fb2e9d75fa7f67ec5934452be827fe9a0a9",
           "commit": "475217b6d679b199e54dd5efde29a63ec38c39ef"
+        },
+        {
+          "release_tag": "contracts-v0.3.0",
+          "wasm_hash": "ccafed3e94e9d9af6b3a72d31e85050bc357168552c8745a9314ea79e29e0b3e",
+          "commit": "a91b9eec00eb3a4af04cf3492f2b193e1328df28"
         }
       ]
     },
     "spend_save": {
       "id": "CCUFRRPCCE7YVKTG3FWE2RAW5ACMU7KVACTVKDM452C5QFMABAXQTTCN",
-      "wasm_hash": "d7a7bb028dca1db88cf78e5514ea99a48c8f373010c154862958153478020f95",
-      "release_tag": "contracts-v0.2.0",
-      "commit": "475217b6d679b199e54dd5efde29a63ec38c39ef",
+      "wasm_hash": "42c21931d32b9874f257991afc984be02552d4db343dade4b2e7e715a9a24200",
+      "release_tag": "contracts-v0.3.0",
+      "commit": "a91b9eec00eb3a4af04cf3492f2b193e1328df28",
       "history": [
         {
           "release_tag": "contracts-v0.1.0",
@@ -43,6 +48,11 @@
           "release_tag": "contracts-v0.2.0",
           "wasm_hash": "d7a7bb028dca1db88cf78e5514ea99a48c8f373010c154862958153478020f95",
           "commit": "475217b6d679b199e54dd5efde29a63ec38c39ef"
+        },
+        {
+          "release_tag": "contracts-v0.3.0",
+          "wasm_hash": "42c21931d32b9874f257991afc984be02552d4db343dade4b2e7e715a9a24200",
+          "commit": "a91b9eec00eb3a4af04cf3492f2b193e1328df28"
         }
       ]
     }
