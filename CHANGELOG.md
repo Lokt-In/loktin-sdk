@@ -7,6 +7,7 @@
 - Breaking: `nextId` and `openGoals` are removed from the Target Savings module and its read adapter. Goal ids are no longer sequential.
 - Find goals with `userGoals(owner)` for your own users, or from the `goal_created` and `goal_closed` events.
 - A write now retries its network check, account lookup and simulation on network errors, as reads do. Nothing is signed or sent before these steps.
+- Every RPC request now has a time limit, 30 seconds by default, set with `requestTimeoutMs`. A request that runs out of time is handled like any other failed request: reads and the steps of a write before signing retry it, and a send that runs out of time is reported as pending.
 
 ## contracts 0.3.0
 

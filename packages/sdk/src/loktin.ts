@@ -160,9 +160,15 @@ class LoktinInstance implements Loktin {
 
   constructor(config: ResolvedConfig) {
     this.config = config;
-    this.server =
-      config.server ??
-      new Server(config.rpcUrl, { allowHttp: config.allowHttp });
+    if (config.server !== undefined) {
+      this.server = config.server;
+    } else {
+      const server = new Server(config.rpcUrl, { allowHttp: config.allowHttp });
+      // stellar-sdk 17.2.1's Server ignores its `timeout` option, but its
+      // HTTP client honours this default on every request (K6, W81).
+      server.httpClient.defaults.timeout = config.requestTimeoutMs;
+      this.server = server;
+    }
   }
 
   async read<T = unknown>(

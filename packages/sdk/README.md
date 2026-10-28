@@ -42,6 +42,8 @@ const spendSave = new SpendSave(loktin, options);
 
 Here `userAddress`, `integratorAddress` and `wallet` come from your app. Every write acts for `publicKey`, and every input the contracts would refuse without needing chain data is refused before any network call.
 
+Every RPC request has a time limit of 30 seconds. Set `requestTimeoutMs` in `createLoktin` to change it. A request that runs out of time counts as a network error and is handled the same way. The limit applies to the RPC connection the SDK builds, not to a `server` you pass in.
+
 ## Target Savings
 
 `createGoal` creates a goal and returns its id. Amounts are `bigint` base units: USDC has 7 decimals, and `toBaseUnits` and `fromBaseUnits` convert to and from decimal strings.

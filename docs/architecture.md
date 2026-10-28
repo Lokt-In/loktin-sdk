@@ -462,13 +462,14 @@ Decisions:
   - Archived entries are restored automatically through simulation (section 6, S1). The contract client's `restore` option stays off, so the user is never asked to sign a separate restore transaction. If a restore step is ever reported, the SDK returns a typed error.
   - On the first write, the SDK confirms that the RPC's network passphrase matches the configured network.
   - Local validation repeats every contract check that needs no chain data, such as amounts, rates, days and deadlines, and fails before any network call. Checks that need chain data, such as the minimum cadence, the open-goal limit or whether an enrolment exists, stay with the contract, and simulation reports them before the user signs. Amended 2026-10-24 (W59).
-- **K6 Retries without double actions.** Amended 2026-10-23 (W50), 2026-10-26 (W77).
+- **K6 Retries without double actions.** Amended 2026-10-23 (W50), 2026-10-26 (W77, W81).
   - The SDK uses the contract client to build, simulate and sign, and sends and polls the transaction itself.
   - PENDING or DUPLICATE: the SDK polls for the outcome.
   - TRY_AGAIN_LATER: the same signed transaction is resent up to 3 times, after 1, 2 and 4 seconds.
   - Waiting for an outcome times out after 60 seconds: the SDK returns a pending result with the transaction hash and the time the transaction stops being valid, and never builds a new transaction by itself.
   - Reads are retried up to 3 times on network errors.
   - The steps of a write before signing are retried the same way: the network check, the account lookup and the simulation. Nothing is signed or sent before them, so a retry can't double an action. A network passphrase mismatch and a contract error from simulation are never retried. stellar-sdk reports every failed account lookup as "Account not found", so a failed request and a missing account look the same; an account that really doesn't exist gets its error after the retries, about 3.5 seconds. Amended 2026-10-26 (W77).
+  - Every RPC request has a time limit, 30 seconds by default, set with `requestTimeoutMs`. stellar-rpc caps a request's execution at 25 seconds by default, so the limit never cuts off an answer a healthy RPC would still give. stellar-sdk 17.2.1 sets no limit (its `Server` ignores the `timeout` option), and Node's fetch would wait up to 300 seconds. A request that runs out of time counts as a network error: reads and the steps before signing retry it, a send whose request runs out of time returns a pending result (the transaction may have arrived), and a status check is simply tried again. The wait for an outcome can then run past 60 seconds by at most one time limit. The limit applies to the RPC connection the SDK builds; an integrator who passes its own `server` keeps its own settings. Amended 2026-10-26 (W81).
 - **K7 Typed errors.** Every error has a stable code and type. Amended 2026-10-23 (W48):
   - invalid input, caught before any network call;
   - contract error, mapped from the section 6 codes;
@@ -485,8 +486,8 @@ Decisions:
   - A `ReadAdapter` interface covers every read.
   - The built-in default reads straight from the chain through simulation. An integrator may supply its own, such as an indexer.
   - Writes always go to the chain.
-- **K10 Configuration.**
-  - `createLoktin({ network, rpcUrl?, contracts?, signer?, publicKey?, readAdapter? })`.
+- **K10 Configuration.** Amended 2026-10-26 (W81).
+  - `createLoktin({ network, rpcUrl?, contracts?, signer?, publicKey?, readAdapter?, server?, requestTimeoutMs? })`. `server` is a stellar-sdk RPC server used instead of one built from `rpcUrl`; `requestTimeoutMs` sets the time limit of every request on the server the SDK builds (K6).
   - `"testnet"` includes Loktin's testnet contract addresses. An integrator's own deployment (C1) passes its own addresses.
   - There is no mainnet configuration in this sprint.
 - **K11 Helpers.** Withdrawal preview, skim preview, allowance amount and expiry, and withdrawal windows in the user's local time (section 4.5). Amended 2026-10-24 (W56, W58).
