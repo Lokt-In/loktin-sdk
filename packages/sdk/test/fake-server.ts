@@ -212,11 +212,17 @@ export interface Call {
     | 'simulateTransaction'
     | 'sendTransaction'
     | 'getTransaction'
-    | 'getLedgerEntries';
+    | 'getLedgerEntries'
+    | 'getHealth'
+    | 'getEvents';
   /** The envelope, for simulateTransaction and sendTransaction. */
   readonly envelope?: string;
   /** The key types, for getLedgerEntries. */
   readonly keys?: readonly string[];
+  /** The cursor asked for, for getEvents (undefined for the first page). */
+  readonly cursor?: string | undefined;
+  /** The start ledger asked for, for a first getEvents page. */
+  readonly startLedger?: number | undefined;
 }
 
 /**
@@ -240,6 +246,15 @@ export class FakeServer extends Server {
     | ((call: Invocation) => Api.SimulateTransactionResponse | undefined)
     | undefined;
   latestLedger = 1_000_000;
+  oldestLedger = 879_040;
+  /** getEvents answers: the first page under `start`, then one per cursor. */
+  readonly eventPages = new Map<string, Api.GetEventsResponse>();
+  /** One-off failures of getHealth, used up in order. */
+  readonly healthErrors: unknown[] = [];
+  /** Oldest ledgers getHealth reports, used up in order before `oldestLedger`. */
+  readonly oldestLedgers: number[] = [];
+  /** One-off failures of getEvents, used up in order; null answers normally. */
+  readonly eventErrors: unknown[] = [];
   maxEntryTtl = 3_110_400;
 
   constructor() {
@@ -361,6 +376,43 @@ export class FakeServer extends Server {
     return this.calls
       .filter((call) => call.method === 'simulateTransaction')
       .map((call) => invocationOf(call.envelope ?? ''));
+  }
+
+  override getHealth(): Promise<Api.GetHealthResponse> {
+    this.calls.push({ method: 'getHealth' });
+    const error = this.healthErrors.shift();
+    if (error !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- stellar-sdk rejects RPC refusals with plain objects
+      return Promise.reject(error);
+    }
+    return Promise.resolve({
+      status: 'healthy',
+      latestLedger: this.latestLedger,
+      oldestLedger: this.oldestLedgers.shift() ?? this.oldestLedger,
+      ledgerRetentionWindow: this.latestLedger - this.oldestLedger,
+    });
+  }
+
+  override getEvents(
+    request: Api.GetEventsRequest,
+  ): Promise<Api.GetEventsResponse> {
+    this.calls.push({
+      method: 'getEvents',
+      cursor: request.cursor,
+      startLedger: request.startLedger,
+    });
+    const error = this.eventErrors.shift();
+    if (error !== undefined && error !== null) {
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- stellar-sdk rejects RPC refusals with plain objects
+      return Promise.reject(error);
+    }
+    const page = this.eventPages.get(request.cursor ?? 'start');
+    if (page === undefined) {
+      return Promise.reject(
+        new Error(`no events page for ${request.cursor ?? 'start'}`),
+      );
+    }
+    return Promise.resolve(page);
   }
 
   methods(): Call['method'][] {

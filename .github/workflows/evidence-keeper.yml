@@ -1,0 +1,44 @@
+name: Evidence keeper
+
+# One keeper pass every hour (V7, W100): collects the testnet evidence
+# goals' scheduled deposits. Its logs are the keeper evidence (E11).
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-keeper
+  cancel-in-progress: false
+
+jobs:
+  keeper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Run one keeper pass
+        env:
+          LOKTIN_KEEPER_SECRET: ${{ secrets.LOKTIN_KEEPER_SECRET }}
+          # The smoke run's integrators and users (evidence/evidence-goals.json).
+          LOKTIN_KEEPER_INTEGRATORS: GBMV4UX5WH7N5THS365Y5YL244FYK4W75S25VBOL2FQQSX2KAI4PQ4BX,GDLQBEVVOO35TFPREWQQYSKJJRODMNKNBDG7V52MPL4SBCSXLUJPEV7F
+          LOKTIN_KEEPER_OWNERS: GCHOME3M4KSLKMW2QPWCFRCCKJDQBF6VKWU5JOFZMJV2QA6WYOA2TCDQ,GBIEZ2GGV3AW2JYNMSOFLMDOXZBHVIOZP6QFZSVJWNGGWA3CAVS45ME4
+        run: |
+          umask 077
+          secret_file="$(mktemp "${RUNNER_TEMP}/keeper-secret.XXXXXX")"
+          trap 'rm -f "$secret_file"' EXIT
+          printf '%s' "$LOKTIN_KEEPER_SECRET" > "$secret_file"
+          # The keeper reads the key from the file, never from its environment.
+          LOKTIN_KEEPER_SECRET_FILE="$secret_file" env -u LOKTIN_KEEPER_SECRET \
+            node packages/keeper/src/run.ts
