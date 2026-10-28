@@ -120,7 +120,14 @@ An upgrade replaces the code of the recorded contracts in place, so their ids st
 
    The verify script then expects each contract's `binver` to match its recorded release tag, and checks that `accrued_fees` answers, which shows the new code is live.
 
-6. Open a pull request with the `deployments/testnet.json` change.
+6. Extend each new code entry from the deployer, so the first user call does not pay the rent for it. The first call after the 0.3.0 upgrade paid 53.46 XLM of rent. Use each contract's new `wasm_hash` from `deployments/testnet.json`:
+
+   ```sh
+   stellar contract extend --wasm-hash <target_savings wasm_hash> --ledgers-to-extend 3110399 --source-account loktin-deployer --network testnet
+   stellar contract extend --wasm-hash <spend_save wasm_hash> --ledgers-to-extend 3110399 --source-account loktin-deployer --network testnet
+   ```
+
+7. Open a pull request with the `deployments/testnet.json` change.
 
 ## Testnet smoke run
 
@@ -175,7 +182,7 @@ node packages/sdk/smoke/testnet-smoke.ts <phase>
 
 Before any write, every phase checks that each alias has at least 10 XLM and a USDC trustline, and that each user holds enough USDC for the phase. If anything is short, it says what and for which alias, and stops.
 
-1. `goals`, as soon as possible. It creates the two evidence goals the keeper collects: user A with a 5% penalty through integrator A, and user B with a lock through integrator B, each with a 5 USDC target, 1 USDC daily deposits and a deadline 7 days away, with the allowance approved. If a matching goal is already open, it is reused, so a rerun is safe. The goals must exist by 31 October. It writes `evidence/evidence-goals.json`.
+1. `goals`, as soon as possible. It creates the two evidence goals the keeper collects: user A with a 5% penalty through integrator A, and user B with a lock through integrator B, each with a 5 USDC target, 1 USDC daily deposits and a deadline 7 days and 1 hour away, with the allowance approved. If a matching goal is already open, it is reused, so a rerun is safe. The goals must exist by 31 October. It writes `evidence/evidence-goals.json`.
 2. `run`. It runs the flows: penalty and lock goals for each user, the expected refusals (`NotOwner`, `Locked` and `OutsideWindow`), user A's two Spend & Save enrolments, and both integrators' Target Savings fee claims. Then it takes the latency sample: 50 small deposits and 300 reads, with p50, p95 and maximum set against the targets of reads under 1 second and writes under 15 seconds at p95. Every goal it creates is closed again before it ends, and it never changes the evidence goals' allowance. It needs 9.6125 USDC for user A and 7.25 USDC for user B, which includes 5 USDC each kept for the evidence goals. A rerun needs the same. It writes `evidence/testnet-smoke.json`.
 
    `run` needs `goals` first: without both evidence goals open, it stops before any write. If it stops partway, look up any pending hash it printed on stellar.expert, then run it again. It first closes every other goal the stopped run left open, recording each as a tidy-up step, updates an enrolment that already exists instead of enrolling again, and carries on.
@@ -185,3 +192,29 @@ Before any write, every phase checks that each alias has at least 10 XLM and a U
 Each evidence file holds the network, the contract ids, the SDK version and git commit, the aliases with their public addresses, and for every transaction its hash, ledger, fee, time and a stellar.expert link. It is written after every step, with `"complete": false` until the phase ends. Any unexpected error stops the phase and is recorded. If a transaction's outcome is not known in time, its hash is recorded and the phase stops without sending it again: look it up on stellar.expert before running the phase again.
 
 Commit the evidence files through a pull request, so they can be checked against the chain.
+
+## Evidence keeper
+
+The `Evidence keeper` workflow (`.github/workflows/evidence-keeper.yml`) runs one keeper pass every hour, at 17 minutes past, and can also be started by hand (V7). Each pass scans the testnet Target Savings goals of the smoke run's two integrators, from the contract's events and the two smoke users' goal lists, and collects every goal that is due. It writes one JSON line per goal and a summary line to the run's log, with public keys and hashes only. Those logs are the keeper evidence, and GitHub keeps them for 90 days.
+
+The keeper's key holds only XLM for fees and has no role and no power over anyone's funds. Set it up once:
+
+1. Create and fund the key:
+
+   ```sh
+   stellar keys generate loktin-keeper --network testnet --fund
+   ```
+
+2. Store its secret as the repository secret the workflow reads. The secret goes straight from the keystore to GitHub and is never shown:
+
+   ```sh
+   stellar keys secret loktin-keeper | gh secret set LOKTIN_KEEPER_SECRET --repo Lokt-In/loktin-sdk
+   ```
+
+3. Start the first run by hand, then check its log:
+
+   ```sh
+   gh workflow run evidence-keeper.yml --repo Lokt-In/loktin-sdk
+   ```
+
+The workflow passes the secret only to the keeper step, which writes it to a file readable only by the runner, runs the keeper with that file, and deletes it in every case. A run exits non-zero on an unexpected error; expected skips, such as a goal that is not due yet, are logged and the run still passes.

@@ -30,6 +30,10 @@
     "./spend-save": {
       "types": "./dist/spend-save/index.d.ts",
       "default": "./dist/spend-save/index.js"
+    },
+    "./keeper": {
+      "types": "./dist/keeper/index.d.ts",
+      "default": "./dist/keeper/index.js"
     }
   },
   "files": [

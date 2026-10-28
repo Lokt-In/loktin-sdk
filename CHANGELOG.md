@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- New `@loktin/sdk/keeper` export: scan the goals a keeper serves from events and owner lists, tell which are due, and run one collection pass, with a fee ceiling for the keeper's signer.
+
 ## @loktin/sdk 0.3.0
 
 - Breaking: `nextId` and `openGoals` are removed from the Target Savings module and its read adapter. Goal ids are no longer sequential.
