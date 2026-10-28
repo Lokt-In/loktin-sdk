@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "paths": {
+      "@loktin/sdk": ["../src/index.ts"],
+      "@loktin/sdk/*": ["../src/*/index.ts"]
+    }
+  },
+  "include": ["."]
+}

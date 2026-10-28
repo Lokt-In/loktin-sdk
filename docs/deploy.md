@@ -122,6 +122,66 @@ An upgrade replaces the code of the recorded contracts in place, so their ids st
 
 6. Open a pull request with the `deployments/testnet.json` change.
 
-## Not yet covered
+## Testnet smoke run
 
-The SDK-based testnet smoke script (V6) comes in part 7, once the SDK exists.
+The smoke script runs every user flow through the SDK on testnet and writes each transaction hash to an evidence file (V6). You run it with your own keys. It signs each transaction with `stellar tx sign`, so every secret stays in the Stellar CLI keystore, and nothing secret is printed or written.
+
+### Aliases
+
+| Alias                       | Role                        |
+| --------------------------- | --------------------------- |
+| `loktin-smoke-user-a`       | User A                      |
+| `loktin-smoke-user-b`       | User B                      |
+| `loktin-smoke-integrator-a` | Integrator A, charging 0.5% |
+| `loktin-smoke-integrator-b` | Integrator B, charging 1%   |
+
+To use other alias names, set `LOKTIN_SMOKE_USER_A`, `LOKTIN_SMOKE_USER_B`, `LOKTIN_SMOKE_INTEGRATOR_A` and `LOKTIN_SMOKE_INTEGRATOR_B`.
+
+### Setup
+
+1. Create and fund the four aliases, one at a time:
+
+   ```sh
+   stellar keys generate loktin-smoke-user-a --network testnet --fund
+   stellar keys generate loktin-smoke-user-b --network testnet --fund
+   stellar keys generate loktin-smoke-integrator-a --network testnet --fund
+   stellar keys generate loktin-smoke-integrator-b --network testnet --fund
+   ```
+
+2. Add a USDC trustline to all four. The integrators need one to claim their fees:
+
+   ```sh
+   stellar tx new change-trust --line USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --source-account loktin-smoke-user-a --network testnet
+   stellar tx new change-trust --line USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --source-account loktin-smoke-user-b --network testnet
+   stellar tx new change-trust --line USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --source-account loktin-smoke-integrator-a --network testnet
+   stellar tx new change-trust --line USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --source-account loktin-smoke-integrator-b --network testnet
+   ```
+
+3. Take 20 USDC from [faucet.circle.com](https://faucet.circle.com) for each user, on Stellar testnet. The faucet gives one request per address every 2 hours.
+4. From an up-to-date `main`:
+
+   ```sh
+   npm ci
+   npm run build
+   ```
+
+### The three phases
+
+Run them in this order, each with:
+
+```sh
+node packages/sdk/smoke/testnet-smoke.ts <phase>
+```
+
+Before any write, every phase checks that each alias has at least 10 XLM and a USDC trustline, and that each user holds enough USDC for the phase. If anything is short, it says what and for which alias, and stops.
+
+1. `goals`, as soon as possible. It creates the two evidence goals the keeper collects: user A with a 5% penalty through integrator A, and user B with a lock through integrator B, each with a 5 USDC target, 1 USDC daily deposits and a deadline 7 days away, with the allowance approved. If a matching goal is already open, it is reused, so a rerun is safe. The goals must exist by 31 October. It writes `evidence/evidence-goals.json`.
+2. `run`. It runs the flows: penalty and lock goals for each user, the expected refusals (`NotOwner`, `Locked` and `OutsideWindow`), user A's two Spend & Save enrolments, and both integrators' Target Savings fee claims. Then it takes the latency sample: 50 small deposits and 300 reads, with p50, p95 and maximum set against the targets of reads under 1 second and writes under 15 seconds at p95. Every goal it creates is closed again before it ends, and it never changes the evidence goals' allowance. It needs 9.6125 USDC for user A and 7.25 USDC for user B, which includes 5 USDC each kept for the evidence goals. A rerun needs the same. It writes `evidence/testnet-smoke.json`.
+
+   `run` needs `goals` first: without both evidence goals open, it stops before any write. If it stops partway, look up any pending hash it printed on stellar.expert, then run it again. It first closes every other goal the stopped run left open, recording each as a tidy-up step, updates an enrolment that already exists instead of enrolling again, and carries on.
+
+3. `window`, on 1 November UTC. It refuses to start on any other day. It withdraws user A's Spend & Save balances with both integrators, closes both enrolments, and claims both integrators' Spend & Save fees. It writes `evidence/testnet-smoke-window.json`.
+
+Each evidence file holds the network, the contract ids, the SDK version and git commit, the aliases with their public addresses, and for every transaction its hash, ledger, fee, time and a stellar.expert link. It is written after every step, with `"complete": false` until the phase ends. Any unexpected error stops the phase and is recorded. If a transaction's outcome is not known in time, its hash is recorded and the phase stops without sending it again: look it up on stellar.expert before running the phase again.
+
+Commit the evidence files through a pull request, so they can be checked against the chain.
