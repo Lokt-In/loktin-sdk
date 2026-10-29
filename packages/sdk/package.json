@@ -1,6 +1,6 @@
 {
   "name": "@loktin/sdk",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Headless TypeScript SDK for Loktin's Target Savings and Spend & Save contracts on Stellar",
   "keywords": [
     "stellar",
@@ -45,7 +45,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json && tsc -p e2e/tsconfig.json && tsc -p smoke/tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json && tsc -p e2e/tsconfig.json && tsc -p smoke/tsconfig.json && tsc -p sizing/tsconfig.json"
   },
   "devDependencies": {
     "@stellar/stellar-sdk": "17.2.1"
