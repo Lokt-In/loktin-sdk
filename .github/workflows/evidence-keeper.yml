@@ -3,7 +3,8 @@ name: Evidence keeper
 # Four keeper passes an hour (V7, W100, W109): collects the testnet
 # evidence goals' scheduled deposits. GitHub can delay or drop a scheduled
 # run when it is busy, so four times away from the top of the hour keep a
-# missed run from losing a whole hour. Its logs are the keeper evidence (E11).
+# missed run from losing a whole hour. Each pass builds and runs the keeper
+# template's image (W107). Its logs are the keeper evidence (E11).
 on:
   schedule:
     - cron: '7 * * * *'
@@ -27,12 +28,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
+      - run: docker build -t loktin-keeper templates/keeper
       - name: Run one keeper pass
         env:
           LOKTIN_KEEPER_SECRET: ${{ secrets.LOKTIN_KEEPER_SECRET }}
@@ -41,9 +37,18 @@ jobs:
           LOKTIN_KEEPER_OWNERS: GCHOME3M4KSLKMW2QPWCFRCCKJDQBF6VKWU5JOFZMJV2QA6WYOA2TCDQ,GBIEZ2GGV3AW2JYNMSOFLMDOXZBHVIOZP6QFZSVJWNGGWA3CAVS45ME4
         run: |
           umask 077
-          secret_file="$(mktemp "${RUNNER_TEMP}/keeper-secret.XXXXXX")"
-          trap 'rm -f "$secret_file"' EXIT
-          printf '%s' "$LOKTIN_KEEPER_SECRET" > "$secret_file"
-          # The keeper reads the key from the file, never from its environment.
-          LOKTIN_KEEPER_SECRET_FILE="$secret_file" env -u LOKTIN_KEEPER_SECRET \
-            node packages/keeper/src/run.ts
+          # A folder only the runner's user can open (mode 0700).
+          secret_dir="$(mktemp -d "${RUNNER_TEMP}/keeper-secret.XXXXXX")"
+          trap 'rm -rf "$secret_dir"' EXIT
+          printf '%s' "$LOKTIN_KEEPER_SECRET" > "$secret_dir/secret"
+          # The container's node user (uid 1000) is not the runner's user,
+          # so the file itself is readable by all, inside the private folder.
+          chmod 0444 "$secret_dir/secret"
+          # The container gets the key as a read-only file, never the secret
+          # variable.
+          docker run --rm --init --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            -v "$secret_dir/secret:/run/secrets/loktin_keeper_secret:ro" \
+            -e LOKTIN_KEEPER_SECRET_FILE=/run/secrets/loktin_keeper_secret \
+            -e LOKTIN_KEEPER_INTEGRATORS -e LOKTIN_KEEPER_OWNERS \
+            loktin-keeper
