@@ -2,12 +2,12 @@
 # digest; Dependabot proposes later digests. The first installs the
 # production packages from the lockfile, the second copies only them and the
 # source, and runs one pass as the non-root node user.
-FROM node:24.22.1-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c AS install
+FROM node:26.12.0-slim@sha256:e556a144463cc8dc53afe8de6d2fa0db5c132fd39ffa232c17641bd40df2bf11 AS install
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci --omit=dev
 
-FROM node:24.22.1-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c
+FROM node:26.12.0-slim@sha256:e556a144463cc8dc53afe8de6d2fa0db5c132fd39ffa232c17641bd40df2bf11
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=install /app/node_modules ./node_modules
