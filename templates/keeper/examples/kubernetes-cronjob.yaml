@@ -1,0 +1,59 @@
+# One keeper pass every hour, at 23 minutes past (E5, W108). It needs:
+# - the image, built from this folder and in a registry your cluster pulls
+#   from (replace the image name below);
+# - a Secret named loktin-keeper holding the key under `secret`, made with
+#   kubectl create secret generic loktin-keeper --from-file=secret=<key file>
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: loktin-keeper
+spec:
+  schedule: '23 * * * *'
+  timeZone: Etc/UTC
+  # Never two passes at once.
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            # The node user of the image.
+            runAsUser: 1000
+            runAsGroup: 1000
+            # The key file is owned by this group, so the node user can read it.
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: keeper
+              image: REPLACE_WITH_YOUR_REGISTRY/loktin-keeper:latest
+              env:
+                - name: LOKTIN_KEEPER_SECRET_FILE
+                  value: /run/secrets/loktin_keeper_secret
+                - name: LOKTIN_KEEPER_INTEGRATORS
+                  value: REPLACE_WITH_YOUR_INTEGRATOR_ADDRESS
+              securityContext:
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: keeper-secret
+                  mountPath: /run/secrets
+                  readOnly: true
+          volumes:
+            - name: keeper-secret
+              secret:
+                secretName: loktin-keeper
+                items:
+                  - key: secret
+                    path: loktin_keeper_secret
+                # 0440 in octal: read only, for the owner and the fsGroup.
+                defaultMode: 288

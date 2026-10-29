@@ -1,11 +1,12 @@
 // One keeper pass (E5): scan, collect what is due, log, exit. Run with
 //
-//   node packages/keeper/src/run.ts
+//   node src/run.ts
 //
-// after `npm run build`. Settings come from environment variables (see
-// settings.ts). Exits 0 when the pass ends, with or without skips, and 1 on
-// a failure or bad settings (E7). Logs are one JSON line per goal, then a
-// summary line, with public keys and hashes only (E8).
+// in this folder, after `npm ci`, or in the image (see the README). Settings
+// come from environment variables (see settings.ts). Exits 0 when the pass
+// ends, with or without skips, and 1 on a failure or bad settings (E7). Logs
+// are one JSON line per goal, then a summary line, with public keys and
+// hashes only (E8).
 import { Keypair } from '@stellar/stellar-sdk/base';
 import { basicNodeSigner } from '@stellar/stellar-sdk/contract';
 import { readFile } from 'node:fs/promises';

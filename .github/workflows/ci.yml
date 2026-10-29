@@ -45,6 +45,41 @@ jobs:
       - run: npm run build
       - run: npm test
 
+  keeper-template:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: templates/keeper
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: templates/keeper/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: docker build -t loktin-keeper .
+      - name: Check the image runs as the node user
+        run: |
+          uid="$(docker run --rm --entrypoint id loktin-keeper -u)"
+          echo "uid ${uid}"
+          test "$uid" = 1000
+      - name: Check the image refuses missing settings without a network
+        run: |
+          set +e
+          output="$(docker run --rm --init --read-only --network none \
+            --cap-drop ALL --security-opt no-new-privileges loktin-keeper 2>&1)"
+          code=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$code" -eq 1
+          printf '%s\n' "$output" | grep -q '^keeper settings: set LOKTIN_KEEPER_SECRET_FILE'
+
   secrets:
     runs-on: ubuntu-latest
     env:

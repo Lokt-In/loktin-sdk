@@ -1,0 +1,5 @@
+# One keeper pass every hour, at 23 minutes past (E5, W108). Install with
+# `crontab -e` as a user that can run docker. Replace the integrator address
+# with yours, and the key file path with where you keep the key (see the
+# README). Each pass writes JSON lines to the log file.
+23 * * * * docker run --rm --init --read-only --cap-drop ALL --security-opt no-new-privileges -v /etc/loktin-keeper/secret:/run/secrets/loktin_keeper_secret:ro -e LOKTIN_KEEPER_SECRET_FILE=/run/secrets/loktin_keeper_secret -e LOKTIN_KEEPER_INTEGRATORS=REPLACE_WITH_YOUR_INTEGRATOR_ADDRESS loktin-keeper >> /var/log/loktin-keeper.log 2>&1

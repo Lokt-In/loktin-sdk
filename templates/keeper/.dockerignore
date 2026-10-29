@@ -1,0 +1,9 @@
+# Only package.json, the lockfile, .npmrc and src/ go into the image.
+node_modules
+test
+examples
+*.md
+Dockerfile
+.dockerignore
+eslint.config.js
+tsconfig.json

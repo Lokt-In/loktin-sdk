@@ -1,0 +1,55 @@
+name: Loktin keeper
+
+# Four keeper passes an hour (E5, W108). Copy this file to
+# .github/workflows/ in a repository holding a copy of the keeper template
+# in keeper/, and set the repository secret LOKTIN_KEEPER_SECRET to the
+# keeper's key. GitHub can delay or drop a scheduled run when it is busy, so
+# four times away from the top of the hour keep a missed run from losing a
+# whole hour.
+on:
+  schedule:
+    - cron: '7 * * * *'
+    - cron: '22 * * * *'
+    - cron: '37 * * * *'
+    - cron: '52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loktin-keeper
+  cancel-in-progress: false
+
+jobs:
+  keeper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build -t loktin-keeper keeper
+      - name: Run one keeper pass
+        env:
+          LOKTIN_KEEPER_SECRET: ${{ secrets.LOKTIN_KEEPER_SECRET }}
+          LOKTIN_KEEPER_INTEGRATORS: REPLACE_WITH_YOUR_INTEGRATOR_ADDRESSES
+          # Optional: owners whose open goals are added to the scan.
+          LOKTIN_KEEPER_OWNERS: ''
+        run: |
+          umask 077
+          # A folder only the runner's user can open (mode 0700).
+          secret_dir="$(mktemp -d "${RUNNER_TEMP}/keeper-secret.XXXXXX")"
+          trap 'rm -rf "$secret_dir"' EXIT
+          printf '%s' "$LOKTIN_KEEPER_SECRET" > "$secret_dir/secret"
+          # The container's node user (uid 1000) is not the runner's user,
+          # so the file itself is readable by all, inside the private folder.
+          chmod 0444 "$secret_dir/secret"
+          # The container gets the key as a read-only file, never the secret
+          # variable.
+          docker run --rm --init --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            -v "$secret_dir/secret:/run/secrets/loktin_keeper_secret:ro" \
+            -e LOKTIN_KEEPER_SECRET_FILE=/run/secrets/loktin_keeper_secret \
+            -e LOKTIN_KEEPER_INTEGRATORS -e LOKTIN_KEEPER_OWNERS \
+            loktin-keeper
