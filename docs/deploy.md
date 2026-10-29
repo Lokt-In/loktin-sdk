@@ -195,7 +195,7 @@ Commit the evidence files through a pull request, so they can be checked against
 
 ## Evidence keeper
 
-The `Evidence keeper` workflow (`.github/workflows/evidence-keeper.yml`) runs a keeper pass four times an hour, at 7, 22, 37 and 52 minutes past, and can also be started by hand (V7). GitHub can delay or drop a scheduled run when it is busy, so a missed run costs 15 minutes, and a pass with nothing due takes about a minute. Each pass scans the testnet Target Savings goals of the smoke run's two integrators, from the contract's events and the two smoke users' goal lists, and collects every goal that is due. It writes one JSON line per goal and a summary line to the run's log, with public keys and hashes only. Those logs are the keeper evidence, and GitHub keeps them for 90 days.
+The `Evidence keeper` workflow (`.github/workflows/evidence-keeper.yml`) runs a keeper pass four times an hour, at 7, 22, 37 and 52 minutes past, and can also be started by hand (V7). Each run builds the image of the keeper template in `templates/keeper/` and runs one pass in it, as the [template's README](../templates/keeper/README.md) describes (W107). GitHub can delay or drop a scheduled run when it is busy, so a missed run costs 15 minutes, and a pass with nothing due takes about a minute. Each pass scans the testnet Target Savings goals of the smoke run's two integrators, from the contract's events and the two smoke users' goal lists, and collects every goal that is due. It writes one JSON line per goal and a summary line to the run's log, with public keys and hashes only. Those logs are the keeper evidence, and GitHub keeps them for 90 days.
 
 The keeper's key holds only XLM for fees and has no role and no power over anyone's funds. Set it up once:
 
@@ -217,4 +217,4 @@ The keeper's key holds only XLM for fees and has no role and no power over anyon
    gh workflow run evidence-keeper.yml --repo Lokt-In/loktin-sdk
    ```
 
-The workflow passes the secret only to the keeper step, which writes it to a file readable only by the runner, runs the keeper with that file, and deletes it in every case. A run exits non-zero on an unexpected error; expected skips, such as a goal that is not due yet, are logged and the run still passes.
+The workflow passes the secret only to the keeper step. That step writes it to a file in a temporary folder only the runner's user can open, mounts the file read-only into the container, and deletes the folder in every case. The file itself is readable by all, because the container's `node` user (uid 1000) is not the runner's user. The container never sees the secret variable. A run exits non-zero on an unexpected error; expected skips, such as a goal that is not due yet, are logged and the run still passes.

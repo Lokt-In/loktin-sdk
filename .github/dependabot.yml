@@ -11,6 +11,24 @@ updates:
         update-types:
           - version-update:semver-major
 
+  - package-ecosystem: npm
+    directory: /templates/keeper
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: docker
+    directory: /templates/keeper
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
