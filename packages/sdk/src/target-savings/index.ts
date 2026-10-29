@@ -1,6 +1,7 @@
 export {
   type ScheduledAllowance,
   type ScheduledAllowanceInput,
+  combineAllowances,
   scheduledAllowance,
 } from './allowance.js';
 export {

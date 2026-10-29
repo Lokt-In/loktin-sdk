@@ -7,7 +7,7 @@ A TypeScript SDK for Loktin's savings contracts on Stellar. It has no user inter
 
 ## Status
 
-- This is the preview release, `0.4.0`. Its API may change before `1.0.0`.
+- This is the preview release, `0.5.0`. Its API may change before `1.0.0`.
 - It works on Stellar testnet only. The contracts have no mainnet deployment, and the SDK refuses the public network.
 - It is designed for browsers and Node. Browser support will be confirmed with the reference app, and is not claimed yet.
 
@@ -48,7 +48,7 @@ Every RPC request has a time limit of 30 seconds. Set `requestTimeoutMs` in `cre
 
 `createGoal` creates a goal and returns its id. Amounts are `bigint` base units: USDC has 7 decimals, and `toBaseUnits` and `fromBaseUnits` convert to and from decimal strings.
 
-By default, the goal also approves an allowance for its scheduled deposits, worked out by the SDK. The allowance covers the deposits due before it expires. It expires one day after the deadline, unless the network's longest allowed time is shorter. In that case the result has a `renewBy` date, 7 days before the allowance expires. Call `renewAllowance` before that date, or later scheduled deposits fail for lack of allowance.
+By default, the goal also approves an allowance for its scheduled deposits, worked out by the SDK. An owner has one token allowance for Target Savings, shared by all their goals, and each approval replaces it whole. So the default allowance covers the scheduled deposits of all the owner's open goals, the new one included, and `renewAllowance` does the same. With `allowance: 'none'` nothing is approved; an explicit `{ amount, expiryLedger }` replaces the allowance of all the owner's goals. Create an owner's goals one at a time, so each approval sees the goals before it. The allowance covers the deposits due before it expires. It expires one day after the latest deadline of those goals, unless the network's longest allowed time is shorter. In that case the result has a `renewBy` date, 7 days before the allowance expires. Call `renewAllowance` before that date, or later scheduled deposits fail for lack of allowance.
 
 ```ts
 import { toBaseUnits } from '@loktin/sdk';
@@ -130,9 +130,10 @@ A keeper collects the scheduled deposits of Target Savings goals when they are d
 
 `@loktin/sdk/keeper` has the parts of a keeper:
 
-- `scanGoals` finds the goals a keeper serves: the open goals of the given integrators, from the contract's `goal_created` and `goal_closed` events, plus the open goals of an optional list of owners.
+- `scanGoals` finds the goals a keeper serves: the open goals of the given integrators, from the contract's `goal_created` and `goal_closed` events, plus the open goals of an optional list of owners. It reads the goals 200 at a time, in one RPC call each.
 - `isDue` tells from a goal's stored data whether it can be collected now.
-- `runPass` runs one pass: it scans, then collects each due goal one at a time. The contract's expected refusals, such as `NotDue` or `Shortfall`, are skips. Any other error stops the pass and is reported in `failure`.
+- `runPass` runs one pass: it scans, then collects each due goal. The contract's expected refusals, such as `NotDue` or `Shortfall`, are skips. Any other error stops the pass and is reported in `failure`.
+- `runPass` also takes a list of SDK instances, one per channel. One account gets about one transaction into each ledger, because its transactions must go one sequence number at a time. A collect needs no signature but its sender's, so a channel is simply another keeper account with its own key and XLM for fees. Each channel takes the next due goal when it is free, so more channels collect more goals in the same time. The pass first checks that every channel's account exists, and sends nothing if one is missing.
 - `feeCeilingSigner` wraps the keeper's signer so it refuses a transaction whose fee is above a ceiling. A refused collect is a skip.
 
 ```ts

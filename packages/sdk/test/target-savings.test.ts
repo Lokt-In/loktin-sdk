@@ -102,11 +102,34 @@ function module(): TargetSavings {
   return new TargetSavings(loktinOn(server), OPTIONS);
 }
 
+/** Answers the owner's open goals, and each goal by its id. */
+function openGoals(goals: readonly RawGoal[]): void {
+  server.simulateBy = (call) => {
+    if (call.method === 'user_goals') {
+      return simulationSuccess(retvalOf('target-savings', 'user_goals', goals));
+    }
+    if (call.method === 'goal') {
+      return simulationSuccess(
+        retvalOf('target-savings', 'goal', goals[0] ?? RAW_GOAL),
+      );
+    }
+    return undefined;
+  };
+}
+
+// A second open goal of the same owner, with the same schedule.
+const RAW_GOAL_5: RawGoal = { ...RAW_GOAL, id: 5n };
+/** The renewal expiry of RAW_GOAL: 7.5 weeks to its deadline, plus one day. */
+const OPEN_EXPIRY = 1_000_000 + (7.5 * WEEK) / 5 + 17_280;
+/** The expiry of NEW_GOAL: 10 weeks to its deadline, plus one day. */
+const NEW_EXPIRY = 1_000_000 + (10 * WEEK) / 5 + 17_280;
+
 const i128 = (value: bigint) => nativeToScVal(value, { type: 'i128' });
 const address = (value: string) => new Address(value).toScVal();
 
 describe('Target Savings writes', () => {
   it('createGoal encodes every argument, with the automatic allowance', async () => {
+    openGoals([]);
     queueWrite(server, retvalOf('target-savings', 'create_goal', 9n));
     const created = await settle(module().createGoal(NEW_GOAL));
 
@@ -117,7 +140,9 @@ describe('Target Savings writes', () => {
       result: 9n,
       allowance: { amount: 700n, expiryLedger: expiry, periods: 10n },
     });
-    const [call] = server.invocations();
+    const call = server
+      .invocations()
+      .find((each) => each.method === 'create_goal');
     expect(call?.contractId).toBe(TS);
     expect(call?.method).toBe('create_goal');
     expect(xdrOf(call?.args ?? [])).toEqual(
@@ -133,10 +158,32 @@ describe('Target Savings writes', () => {
         ScVal.scvVec([i128(700n), ScVal.scvU32(expiry)]),
       ]),
     );
-    expect(server.calls[0]).toEqual({
+    expect(server.calls).toContainEqual({
       method: 'getLedgerEntries',
       keys: ['configSetting'],
     });
+  });
+
+  it("createGoal with 'auto' approves for the owner's open goals and the new one", async () => {
+    openGoals([RAW_GOAL, RAW_GOAL_5]);
+    queueWrite(server, retvalOf('target-savings', 'create_goal', 9n));
+    const created = await settle(module().createGoal(NEW_GOAL));
+    // 800 for each open goal (periods 3 to 10) and 700 for the new one; the
+    // new goal's expiry is the latest.
+    expect(created).toMatchObject({
+      allowance: { amount: 2300n, expiryLedger: NEW_EXPIRY, periods: 26n },
+    });
+    const create = server
+      .invocations()
+      .find((call) => call.method === 'create_goal');
+    expect(xdrOf(create?.args.slice(8) ?? [])).toEqual(
+      xdrOf([ScVal.scvVec([i128(2300n), ScVal.scvU32(NEW_EXPIRY)])]),
+    );
+    const reads = server
+      .invocations()
+      .filter((call) => call.method === 'user_goals');
+    expect(xdrOf(reads[0]?.args ?? [])).toEqual(xdrOf([address(USER)]));
+    expect(reads).toHaveLength(1);
   });
 
   it("createGoal passes a lock rule, and no allowance for 'none'", async () => {
@@ -154,6 +201,8 @@ describe('Target Savings writes', () => {
     );
     expect(xdrOf(call?.args.slice(8) ?? [])).toEqual(xdrOf([ScVal.scvVoid()]));
     expect(server.methods()).not.toContain('getLedgerEntries');
+    // No read of the owner's goals: 'none' approves nothing.
+    expect(server.invocations().map((c) => c.method)).toEqual(['create_goal']);
   });
 
   it('createGoal passes an explicit allowance as given', async () => {
@@ -168,6 +217,7 @@ describe('Target Savings writes', () => {
     expect(xdrOf(call?.args.slice(8) ?? [])).toEqual(
       xdrOf([ScVal.scvVec([i128(5n), ScVal.scvU32(1_000_100)])]),
     );
+    expect(server.invocations().map((c) => c.method)).toEqual(['create_goal']);
   });
 
   it('deposit, withdraw and collect call their functions for publicKey', async () => {
@@ -199,10 +249,7 @@ describe('Target Savings writes', () => {
   });
 
   it('renewAllowance approves the remaining deposits, with one token lookup per instance', async () => {
-    server.simulateBy = (call) =>
-      call.method === 'goal'
-        ? simulationSuccess(retvalOf('target-savings', 'goal', RAW_GOAL))
-        : undefined;
+    openGoals([RAW_GOAL]);
     queueWrite(server, ScVal.scvVoid());
     const targetSavings = module();
     const renewed = await settle(targetSavings.renewAllowance(4n));
@@ -229,6 +276,24 @@ describe('Target Savings writes', () => {
     expect(
       server.invocations().filter((c) => c.method === 'approve'),
     ).toHaveLength(2);
+  });
+
+  it("renewAllowance covers every one of the owner's open goals", async () => {
+    openGoals([RAW_GOAL, RAW_GOAL_5]);
+    queueWrite(server, ScVal.scvVoid());
+    const renewed = await settle(module().renewAllowance(4n));
+    expect(renewed).toMatchObject({
+      allowance: { amount: 1600n, expiryLedger: OPEN_EXPIRY, periods: 16n },
+    });
+    const approve = server.invocations().find((c) => c.method === 'approve');
+    expect(xdrOf(approve?.args ?? [])).toEqual(
+      xdrOf([
+        address(USER),
+        address(TS),
+        i128(1600n),
+        ScVal.scvU32(OPEN_EXPIRY),
+      ]),
+    );
   });
 });
 

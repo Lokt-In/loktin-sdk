@@ -1,6 +1,7 @@
 export {
   FeeAboveCeilingError,
   type GoalResult,
+  LEDGER_KEYS_PER_CALL,
   type PassOptions,
   type PassResult,
   SKIPPED_ERRORS,

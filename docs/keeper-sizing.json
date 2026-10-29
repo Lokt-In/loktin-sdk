@@ -1,0 +1,84 @@
+{
+  "measuredAt": "2026-10-29T11:59:16.528Z",
+  "network": {
+    "kind": "private local network (stellar/quickstart, --limits testnet, protocol 29)",
+    "secondsPerLedger": 1
+  },
+  "machine": {
+    "cpu": "11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz",
+    "cores": 8,
+    "memoryGiB": 15,
+    "os": "linux 6.18.54.1-microsoft-standard-WSL2",
+    "node": "v24.22.1"
+  },
+  "goals": 2000,
+  "owners": 100,
+  "goalsPerOwner": 20,
+  "cadenceSeconds": 60,
+  "depositSize": "10000000",
+  "setupSeconds": 126,
+  "runSeconds": 5716,
+  "sweeps": [
+    {
+      "channels": 1,
+      "goalsCollected": 2000,
+      "skipped": {},
+      "notDue": 0,
+      "failure": null,
+      "sweepSeconds": 3003.4,
+      "firstLedger": 252,
+      "lastLedger": 3253,
+      "ledgersSpanned": 3002,
+      "txPerLedger": 0.666,
+      "peakTxPerLedger": 1,
+      "sentPerChannel": [
+        2000
+      ],
+      "tryAgainLater": 0,
+      "scanPages": 4,
+      "scanEvents": 2000
+    },
+    {
+      "channels": 2,
+      "goalsCollected": 2000,
+      "skipped": {},
+      "notDue": 0,
+      "failure": null,
+      "sweepSeconds": 1528.2,
+      "firstLedger": 3321,
+      "lastLedger": 4846,
+      "ledgersSpanned": 1526,
+      "txPerLedger": 1.311,
+      "peakTxPerLedger": 2,
+      "sentPerChannel": [
+        1001,
+        999
+      ],
+      "tryAgainLater": 0,
+      "scanPages": 4,
+      "scanEvents": 2000
+    },
+    {
+      "channels": 4,
+      "goalsCollected": 2000,
+      "skipped": {},
+      "notDue": 0,
+      "failure": null,
+      "sweepSeconds": 786.2,
+      "firstLedger": 4915,
+      "lastLedger": 5697,
+      "ledgersSpanned": 783,
+      "txPerLedger": 2.554,
+      "peakTxPerLedger": 4,
+      "sentPerChannel": [
+        502,
+        501,
+        503,
+        494
+      ],
+      "tryAgainLater": 0,
+      "scanPages": 4,
+      "scanEvents": 2000
+    }
+  ]
+}

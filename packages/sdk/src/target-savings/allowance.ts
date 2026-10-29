@@ -123,3 +123,45 @@ export function scheduledAllowance(
   }
   return allowance;
 }
+
+/**
+ * Combines the allowances of several goals into one (W116). An owner has a
+ * single token allowance for Target Savings, and each approval replaces it,
+ * so one approval must cover all of the owner's goals. The amounts and
+ * periods are summed, the expiry is the latest one (with its expected
+ * time), and `renewBy` is the earliest one present. No network call.
+ */
+export function combineAllowances(
+  allowances: readonly ScheduledAllowance[],
+): ScheduledAllowance {
+  const [first, ...rest] = allowances;
+  if (first === undefined) {
+    throw new InvalidInputError(
+      'combineAllowances needs at least one allowance',
+    );
+  }
+  let amount = first.amount;
+  let periods = first.periods;
+  let latest = first;
+  let renewBy = first.renewBy;
+  for (const allowance of rest) {
+    amount += allowance.amount;
+    periods += allowance.periods;
+    if (allowance.expiryLedger > latest.expiryLedger) {
+      latest = allowance;
+    }
+    if (
+      allowance.renewBy !== undefined &&
+      (renewBy === undefined || allowance.renewBy < renewBy)
+    ) {
+      renewBy = allowance.renewBy;
+    }
+  }
+  const combined: ScheduledAllowance = {
+    amount,
+    expiryLedger: latest.expiryLedger,
+    expiresAt: latest.expiresAt,
+    periods,
+  };
+  return renewBy === undefined ? combined : { ...combined, renewBy };
+}

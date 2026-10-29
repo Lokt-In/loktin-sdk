@@ -9,6 +9,8 @@ import {
 } from '@stellar/stellar-sdk/base';
 import { Api, Server, parseRawSimulation } from '@stellar/stellar-sdk/rpc';
 import {
+  AccountEntry,
+  AccountEntryExt,
   ConfigSettingEntry,
   ContractDataDurability,
   ContractDataEntry,
@@ -204,6 +206,16 @@ export function invocationOf(envelope: string): Invocation {
 
 type Responder<T> = T | Error | (() => T | Error);
 
+/** The goal id of a `DataKey::Goal(id)` storage key, or undefined. */
+function goalIdOf(key: ScVal): bigint | undefined {
+  const [name, id] = key.type === 'scvVec' ? (key.vec ?? []) : [];
+  return name?.type === 'scvSymbol' &&
+    name.sym.toString() === 'Goal' &&
+    id?.type === 'scvU64'
+    ? id.u64
+    : undefined;
+}
+
 /** One call the SDK made to the server. */
 export interface Call {
   readonly method:
@@ -255,6 +267,10 @@ export class FakeServer extends Server {
   readonly oldestLedgers: number[] = [];
   /** One-off failures of getEvents, used up in order; null answers normally. */
   readonly eventErrors: unknown[] = [];
+  /** Stored goal records by goal id; an id not here has no entry. */
+  readonly goalRecords = new Map<bigint, ScVal>();
+  /** Accounts with no ledger entry; every other account exists. */
+  readonly missingAccounts = new Set<string>();
   maxEntryTtl = 3_110_400;
 
   constructor() {
@@ -323,8 +339,9 @@ export class FakeServer extends Server {
     );
   }
 
-  // Answers a contract instance key with a Stellar Asset Contract, and the
-  // state archival key with `maxEntryTtl`.
+  // Answers a goal key from `goalRecords`, an account key unless the account
+  // is in `missingAccounts`, any other contract data key with a Stellar Asset
+  // Contract, and the state archival key with `maxEntryTtl`.
   override getLedgerEntries(
     ...keys: LedgerKey[]
   ): Promise<Api.GetLedgerEntriesResponse> {
@@ -332,7 +349,63 @@ export class FakeServer extends Server {
       method: 'getLedgerEntries',
       keys: keys.map((key) => key.type),
     });
-    const entries = keys.map((key) => ({
+    const entries: Api.LedgerEntryResult[] = [];
+    for (const key of keys) {
+      if (key.type === 'account') {
+        const accountId = key.account.accountId;
+        const missing = [...this.missingAccounts].some(
+          (address) =>
+            Keypair.fromPublicKey(address).xdrPublicKey().toXdr('base64') ===
+            accountId.toXdr('base64'),
+        );
+        if (!missing) {
+          entries.push({
+            key,
+            val: LedgerEntryData.account(
+              new AccountEntry({
+                accountId,
+                balance: 100_000_000n,
+                seqNum: 100n,
+                numSubEntries: 0,
+                inflationDest: null,
+                flags: 0,
+                homeDomain: '',
+                thresholds: new Uint8Array([1, 0, 0, 0]),
+                signers: [],
+                ext: AccountEntryExt.v0(),
+              }),
+            ),
+          });
+        }
+        continue;
+      }
+      const data = key.type === 'contractData' ? key.contractData : undefined;
+      const stored = data === undefined ? undefined : goalIdOf(data.key);
+      if (data !== undefined && stored !== undefined) {
+        const record = this.goalRecords.get(stored);
+        if (record !== undefined) {
+          entries.push({
+            key,
+            val: LedgerEntryData.contractData(
+              new ContractDataEntry({
+                ext: ExtensionPoint.v0(),
+                contract: data.contract,
+                key: data.key,
+                durability: ContractDataDurability.persistent,
+                val: record,
+              }),
+            ),
+          });
+        }
+        continue;
+      }
+      entries.push(this.standardEntry(key));
+    }
+    return Promise.resolve({ entries, latestLedger: this.latestLedger });
+  }
+
+  private standardEntry(key: LedgerKey): Api.LedgerEntryResult {
+    return {
       key,
       val:
         key.type === 'contractData'
@@ -367,8 +440,7 @@ export class FakeServer extends Server {
                 }),
               ),
             ),
-    }));
-    return Promise.resolve({ entries, latestLedger: this.latestLedger });
+    };
   }
 
   /** The contract calls of every simulation, oldest first. */

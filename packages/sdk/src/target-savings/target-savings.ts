@@ -13,7 +13,11 @@ import {
   userOf,
   writerOf,
 } from '../validate.js';
-import { type ScheduledAllowance, scheduledAllowance } from './allowance.js';
+import {
+  type ScheduledAllowance,
+  combineAllowances,
+  scheduledAllowance,
+} from './allowance.js';
 import {
   type Goal,
   type GoalWithdrawal,
@@ -28,9 +32,18 @@ import {
 } from './types.js';
 
 /**
- * The allowance a new goal approves for its scheduled deposits: `'auto'`
- * works it out with {@link scheduledAllowance}, `'none'` approves nothing,
- * and an object approves exactly that.
+ * The allowance a new goal approves for its scheduled deposits. An owner has
+ * one token allowance for Target Savings, shared by all their goals, and an
+ * approval replaces it whole.
+ * - `'auto'` approves what all the owner's open goals need, the new one
+ *   included: each worked out with {@link scheduledAllowance}, then
+ *   combined with {@link combineAllowances}.
+ * - `'none'` approves nothing and leaves the current allowance as it is.
+ * - An object approves exactly that, and replaces the allowance of all the
+ *   owner's goals.
+ *
+ * Goals are best created one at a time, so each `'auto'` approval sees the
+ * goals before it.
  */
 export type GoalAllowance =
   'auto' | 'none' | { readonly amount: bigint; readonly expiryLedger: number };
@@ -48,13 +61,13 @@ export interface CreateGoalInput {
 
 /** The outcome of {@link TargetSavings.createGoal}. `result` is the new goal id. */
 export interface CreatedGoal extends WriteResult<bigint> {
-  /** The allowance worked out for `'auto'`, otherwise undefined. */
+  /** The combined allowance approved for `'auto'`, otherwise undefined. */
   readonly allowance: ScheduledAllowance | undefined;
 }
 
 /** The outcome of {@link TargetSavings.renewAllowance}. */
 export interface RenewedAllowance extends WriteResult<null> {
-  /** The allowance approved. */
+  /** The allowance approved, for all the owner's open goals. */
   readonly allowance: ScheduledAllowance;
 }
 
@@ -97,9 +110,12 @@ export class TargetSavings {
 
   /**
    * Creates a goal for `publicKey` and returns its id. Ids are not
-   * sequential: each comes from the owner and its own counter. With `'auto'`, the
-   * allowance for scheduled deposits comes from {@link scheduledAllowance}
-   * and costs one more RPC call. The deadline is rounded down to the second.
+   * sequential: each comes from the owner and its own counter. With
+   * `'auto'`, the allowance covers the scheduled deposits of all the owner's
+   * open goals and the new one, because an approval replaces the owner's
+   * whole Target Savings allowance (W116). It reads the owner's open goals
+   * and the ledger in parallel before the write. The returned allowance is
+   * the combined one. The deadline is rounded down to the second.
    */
   async createGoal(input: CreateGoalInput): Promise<CreatedGoal> {
     const owner = writerOf(this.loktin.config);
@@ -136,19 +152,24 @@ export class TargetSavings {
     // Checked at run time too, for callers without types.
     const choice: unknown = input.allowance ?? 'auto';
     if (choice === 'auto') {
-      const { latestLedger, maxEntryTtl } = await this.loktin.ledgerInfo();
-      allowance = scheduledAllowance({
-        now,
-        ledger: latestLedger,
-        maxEntryTtl,
-        start: now,
-        deadline,
-        cadenceSeconds: cadence,
-        depositSize,
-        target,
-        principal: 0n,
-        lastCollectedPeriod: 0n,
-      });
+      const [open, { latestLedger, maxEntryTtl }] = await Promise.all([
+        this.chain.userGoals(owner),
+        this.loktin.ledgerInfo(),
+      ]);
+      const ledger = { now, ledger: latestLedger, maxEntryTtl };
+      allowance = combineAllowances([
+        ...open.map((goal) => allowanceOf(goal, ledger)),
+        scheduledAllowance({
+          ...ledger,
+          start: now,
+          deadline,
+          cadenceSeconds: cadence,
+          depositSize,
+          target,
+          principal: 0n,
+          lastCollectedPeriod: 0n,
+        }),
+      ]);
       approval = [allowance.amount, allowance.expiryLedger];
     } else if (typeof choice === 'object' && choice !== null) {
       const { amount, expiryLedger } = choice as Record<string, unknown>;
@@ -217,15 +238,19 @@ export class TargetSavings {
   }
 
   /**
-   * Approves a new allowance for the goal's remaining scheduled deposits,
-   * worked out with {@link scheduledAllowance}. A new approval replaces the
-   * old one (W57). Reads the goal from the chain, never from the adapter.
+   * Approves a new allowance for the remaining scheduled deposits of all
+   * the owner's open goals, `goalId` among them: each worked out with
+   * {@link scheduledAllowance}, then combined with
+   * {@link combineAllowances}. An approval replaces the owner's whole
+   * Target Savings allowance, which covers all their goals (W57, W116).
+   * Reads the goals from the chain, never from the adapter.
    */
   async renewAllowance(goalId: bigint): Promise<RenewedAllowance> {
     const owner = writerOf(this.loktin.config);
     const id = checkU64(goalId, 'goalId');
-    const [goal, { latestLedger, maxEntryTtl }] = await Promise.all([
+    const [goal, open, { latestLedger, maxEntryTtl }] = await Promise.all([
       this.chain.goal(id),
+      this.chain.userGoals(owner),
       this.loktin.ledgerInfo(),
     ]);
     if (goal.owner !== owner) {
@@ -233,18 +258,13 @@ export class TargetSavings {
         `goal ${String(id)} is not owned by publicKey`,
       );
     }
-    const allowance = scheduledAllowance({
-      now: new Date(),
-      ledger: latestLedger,
-      maxEntryTtl,
-      start: goal.start,
-      deadline: goal.deadline,
-      cadenceSeconds: goal.cadenceSeconds,
-      depositSize: goal.depositSize,
-      target: goal.target,
-      principal: goal.principal,
-      lastCollectedPeriod: goal.lastCollectedPeriod,
-    });
+    const ledger = { now: new Date(), ledger: latestLedger, maxEntryTtl };
+    const goals = open.some((other) => other.id === id)
+      ? open
+      : [...open, goal];
+    const allowance = combineAllowances(
+      goals.map((each) => allowanceOf(each, ledger)),
+    );
     const approved = await this.loktin.write<null>('token', 'approve', {
       from: owner,
       spender: this.contractId,
@@ -257,7 +277,9 @@ export class TargetSavings {
   /**
    * Reads the goal and the token allowance of `publicKey` for Target Savings,
    * in parallel, and says whether the next collection would be short on
-   * allowance. It does not check the owner's balance.
+   * allowance. The allowance is shared by all the owner's goals, so other
+   * goals' collections use it up too. It does not check the owner's
+   * balance.
    */
   async allowanceStatus(goalId: bigint): Promise<AllowanceStatus> {
     const owner = userOf(this.loktin.config);
@@ -380,6 +402,23 @@ export class TargetSavings {
     const adapter = this.adapter;
     return adapter?.paused ? adapter.paused() : this.chain.paused();
   }
+}
+
+/** The scheduled allowance a stored goal still needs, at `ledger`. */
+function allowanceOf(
+  goal: Goal,
+  ledger: { now: Date; ledger: number; maxEntryTtl: number },
+): ScheduledAllowance {
+  return scheduledAllowance({
+    ...ledger,
+    start: goal.start,
+    deadline: goal.deadline,
+    cadenceSeconds: goal.cadenceSeconds,
+    depositSize: goal.depositSize,
+    target: goal.target,
+    principal: goal.principal,
+    lastCollectedPeriod: goal.lastCollectedPeriod,
+  });
 }
 
 // The built-in adapter: each read is one call through the core.

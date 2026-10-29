@@ -5,3 +5,4 @@ package-lock.json
 docs/architecture.md
 **/test_snapshots/
 packages/sdk/src/generated/
+docs/keeper-sizing.json

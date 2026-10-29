@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## @loktin/sdk 0.5.0
+
+- The keeper reads the goals it found in batches, up to 200 goals in one RPC call, instead of one call per goal.
+- `runPass` takes a list of SDK instances as well as one. Each is a channel: another keeper account with its own key, holding only XLM for fees. One account gets about one transaction into each ledger, so each extra channel lets a pass collect more goals in the same time. The pass checks that every channel's account exists before it sends anything, and gives each due goal to the next free channel. A pass with one instance works as before.
+- A failure that is not about one goal, such as a missing channel account, has no `goalId`. A failure names the channel it happened on in `channel`.
+- The automatic allowance of `createGoal` and `renewAllowance` now covers all of the owner's open goals, not just one. An owner has one allowance for Target Savings, and a new approval replaces the old one, so an approval for one goal used to leave the others short. `createGoal` makes one more read for it, of the owner's open goals.
+
 ## @loktin/sdk 0.4.0
 
 - New `@loktin/sdk/keeper` export for running a keeper. A keeper pass finds the goals the keeper serves from the contract's events, plus an optional list of owners, collects each goal that is due, and logs the contract's expected refusals as skips. `feeCeilingSigner` wraps the keeper's signer so it refuses a transaction whose fee is above a ceiling. The keeper template comes separately.

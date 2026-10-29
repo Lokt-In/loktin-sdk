@@ -17,8 +17,12 @@ const targetSavings = new TargetSavings(sdkFor(ctx, 'user'), {
 
 describe('Target Savings on a local network', () => {
   let goalId = 0n;
+  // The owner's whole allowance after createGoal: it covers every open goal.
+  let approved = 0n;
 
   it('createGoal approves the automatic allowance', async () => {
+    // Other files' goals of the same user share the allowance (W116).
+    const others = await targetSavings.userGoals();
     const created = await targetSavings.createGoal({
       target: toBaseUnits('100'),
       deadline: new Date(Date.now() + 10 * MIN_CADENCE * 1000),
@@ -27,13 +31,20 @@ describe('Target Savings on a local network', () => {
       rule: { kind: 'penalty', bps: 500 },
     });
     goalId = created.result;
-    // Ten periods of 10 before the deadline, which is the whole target.
-    expect(created.allowance).toMatchObject({
-      amount: toBaseUnits('100'),
-      periods: 10n,
-    });
+    // Ten periods of 10 before the deadline, which is the whole target,
+    // plus what the owner's other open goals still need.
+    approved = created.allowance?.amount ?? 0n;
+    if (others.length === 0) {
+      expect(created.allowance).toMatchObject({
+        amount: toBaseUnits('100'),
+        periods: 10n,
+      });
+    } else {
+      expect(approved).toBeGreaterThanOrEqual(toBaseUnits('100'));
+      expect(created.allowance?.periods).toBeGreaterThanOrEqual(10n);
+    }
     await expect(targetSavings.allowanceStatus(goalId)).resolves.toEqual({
-      allowance: toBaseUnits('100'),
+      allowance: approved,
       nextAmount: toBaseUnits('10'),
       short: false,
     });
@@ -85,14 +96,17 @@ describe('Target Savings on a local network', () => {
       loktinFee: toBaseUnits('0.15'),
       toUser: toBaseUnits('14.025'),
     });
+    // The collect of period 1 took 10 from the shared allowance.
     await expect(targetSavings.allowanceStatus(goalId)).resolves.toEqual({
-      allowance: toBaseUnits('90'),
+      allowance: approved - toBaseUnits('10'),
       nextAmount: toBaseUnits('10'),
       short: false,
     });
+    // The renewal covers every open goal of the owner, this one's 85 among
+    // them at most.
     const renewed = await targetSavings.renewAllowance(goalId);
     expect(renewed.allowance.amount).toBeGreaterThan(0n);
-    expect(renewed.allowance.amount).toBeLessThanOrEqual(toBaseUnits('85'));
+    expect(renewed.allowance.amount).toBeLessThanOrEqual(approved);
     await expect(targetSavings.allowanceStatus(goalId)).resolves.toMatchObject({
       allowance: renewed.allowance.amount,
     });

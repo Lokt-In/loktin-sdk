@@ -6,7 +6,8 @@
 # Usage: scripts/e2e.sh [vitest options, such as --reporter=verbose]
 #
 # Build first: `stellar contract build`, then `npm run build`. Set E2E_PORT
-# to use a port other than 8000.
+# to use a port other than 8000. Set E2E_CONFIG to run another Vitest config
+# on the same network, as scripts/keeper-sizing.sh does.
 #
 # Needs: docker, stellar (CLI 28.1.0), curl and node.
 set -euo pipefail
@@ -14,6 +15,7 @@ set -euo pipefail
 # stellar/quickstart v678-b1525.1-latest: stellar-core v29.0.0, stellar-rpc v29.0.1.
 IMAGE="stellar/quickstart@sha256:4f8dfd693deba57fddef7f0bc722e4782c2e606c8675e3adc5438cebae249295"
 PORT="${E2E_PORT:-8000}"
+CONFIG="${E2E_CONFIG:-vitest.e2e.config.js}"
 HEALTH_TIMEOUT=180
 
 cd "$(dirname "$0")/.."
@@ -65,4 +67,4 @@ until curl -fsS -X POST "http://localhost:${PORT}/rpc" \
 done
 echo "healthy after $(($(date +%s) - started)) s"
 
-E2E_PORT="$PORT" npx vitest run --config vitest.e2e.config.js "$@"
+E2E_PORT="$PORT" npx vitest run --config "$CONFIG" "$@"
