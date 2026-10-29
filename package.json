@@ -14,7 +14,8 @@
     "typecheck": "npm run typecheck --workspaces",
     "build": "npm run build --workspaces",
     "test": "vitest run --passWithNoTests",
-    "test:e2e": "bash scripts/e2e.sh"
+    "test:e2e": "bash scripts/e2e.sh",
+    "sizing:keeper": "bash scripts/keeper-sizing.sh"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
