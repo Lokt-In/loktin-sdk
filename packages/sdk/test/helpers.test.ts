@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { InvalidInputError, windowInTimeZone } from '../src/index.js';
 import { effectiveWithdrawalDay } from '../src/spend-save/index.js';
 import {
+  type ScheduledAllowance,
   type ScheduledAllowanceInput,
+  combineAllowances,
   creationBreakdown,
   scheduledAllowance,
 } from '../src/target-savings/index.js';
@@ -133,6 +135,51 @@ describe('scheduledAllowance', () => {
     expect(() =>
       scheduledAllowance(newGoal({ deadline: new Date(Number.NaN) })),
     ).toThrow(InvalidInputError);
+  });
+});
+
+describe('combineAllowances', () => {
+  const allowance = (
+    amount: bigint,
+    expiryLedger: number,
+    periods: bigint,
+    renewBy?: number,
+  ): ScheduledAllowance => ({
+    amount,
+    expiryLedger,
+    expiresAt: at(NOW_S + (expiryLedger - LEDGER) * 5),
+    periods,
+    ...(renewBy === undefined ? {} : { renewBy: at(renewBy) }),
+  });
+
+  it('sums the amounts and periods, and keeps the latest expiry with its time', () => {
+    expect(
+      combineAllowances([
+        allowance(700n, 1_200_000, 10n),
+        allowance(800n, 1_400_000, 8n),
+        allowance(50n, 1_100_000, 1n),
+      ]),
+    ).toEqual(allowance(1550n, 1_400_000, 19n));
+  });
+
+  it('keeps the earliest renewBy present, and none when none has one', () => {
+    const combined = combineAllowances([
+      allowance(1n, 1_200_000, 1n, NOW_S + 9 * WEEK),
+      allowance(1n, 1_300_000, 1n),
+      allowance(1n, 1_100_000, 1n, NOW_S + 5 * WEEK),
+    ]);
+    expect(combined.renewBy).toEqual(at(NOW_S + 5 * WEEK));
+    expect(combined.expiryLedger).toBe(1_300_000);
+    expect(
+      'renewBy' in
+        combineAllowances([allowance(1n, 1_200_000, 1n), allowance(2n, 1, 1n)]),
+    ).toBe(false);
+  });
+
+  it('gives one allowance back unchanged, and refuses none', () => {
+    const one = allowance(700n, 1_200_000, 10n, NOW_S + WEEK);
+    expect(combineAllowances([one])).toEqual(one);
+    expect(() => combineAllowances([])).toThrow(InvalidInputError);
   });
 });
 
