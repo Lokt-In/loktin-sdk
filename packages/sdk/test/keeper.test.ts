@@ -1,6 +1,7 @@
 import {
   Address,
   StrKey,
+  type Transaction,
   TransactionBuilder,
   scValToNative,
 } from '@stellar/stellar-sdk/base';
@@ -16,6 +17,7 @@ import {
 } from '../src/index.js';
 import {
   FeeAboveCeilingError,
+  LEDGER_KEYS_PER_CALL,
   feeCeilingSigner,
   isDue,
   START_MARGIN_LEDGERS,
@@ -23,8 +25,9 @@ import {
   scanGoals,
   scanStart,
 } from '../src/keeper/index.js';
+import { goalFromEntry, goalKey } from '../src/keeper/keeper.js';
 import type { Goal } from '../src/target-savings/index.js';
-import type { RawGoal } from '../src/target-savings/types.js';
+import { type RawGoal, toGoal } from '../src/target-savings/types.js';
 import {
   FakeServer,
   TESTNET_PASSPHRASE,
@@ -85,6 +88,14 @@ function rawGoal(id: bigint, integrator: string, owner = USER): RawGoal {
 }
 
 const at = (seconds: number) => new Date(seconds * 1000);
+
+/** A stored goal, `GoalRecord::V1(goal)`, as the contract keeps it. */
+function goalRecord(raw: RawGoal): ScVal {
+  return ScVal.scvVec([
+    ScVal.scvSymbol('V1'),
+    retvalOf('target-savings', 'goal', raw),
+  ]);
+}
 
 describe('isDue', () => {
   it('is false in period 0, before the first period starts', () => {
@@ -184,20 +195,13 @@ beforeEach(() => {
   server.eventPages.set('c1', page([], 'c2'));
   server.eventPages.set('c2', page([], 'c3'));
   server.eventPages.set('c3', page([], 'c3'));
+  for (const id of [1n, 2n, 3n]) {
+    server.goalRecords.set(
+      id,
+      goalRecord(rawGoal(id, id === 2n ? INTEGRATOR_B : INTEGRATOR_A)),
+    );
+  }
   server.simulateBy = (call) => {
-    if (call.method === 'goal') {
-      const id = scValToNative(call.args[0] as ScVal) as bigint;
-      if (id === 7n) {
-        return simulationFailure('HostError', [errorEvent(TS, 100)]);
-      }
-      return simulationSuccess(
-        retvalOf(
-          'target-savings',
-          'goal',
-          rawGoal(id, id === 2n ? INTEGRATOR_B : INTEGRATOR_A),
-        ),
-      );
-    }
     if (call.method === 'user_goals') {
       return simulationSuccess(
         retvalOf('target-savings', 'user_goals', [
@@ -217,6 +221,15 @@ afterEach(() => {
 
 const reader = () => createLoktin({ network: 'testnet', server });
 const ids = (goals: readonly Goal[]) => goals.map((g) => g.id).sort();
+/** The number of keys in each getLedgerEntries call for goal entries. */
+const goalReads = () =>
+  server.calls
+    .filter(
+      (call) =>
+        call.method === 'getLedgerEntries' &&
+        call.keys?.every((type) => type === 'contractData') === true,
+    )
+    .map((call) => call.keys?.length);
 
 describe('scanGoals', () => {
   it('follows the cursor through empty pages until it stops changing', async () => {
@@ -251,18 +264,78 @@ describe('scanGoals', () => {
     });
     expect(ids(scan.goals)).toEqual([1n, 5n]);
     // Goal 1 came from the owner's list, so it is not read again.
-    expect(
-      server.invocations().filter((call) => call.method === 'goal'),
-    ).toHaveLength(0);
+    expect(goalReads()).toEqual([]);
   });
 
-  it('drops a goal that closed after its last event', async () => {
+  it('reads the goals in batches of 200 keys: 201 goals take calls of 200 and 1', async () => {
+    const many = Array.from({ length: 201 }, (_, i) => BigInt(i + 100));
     server.eventPages.set(
       'start',
-      page([event('goal_created', 7n, INTEGRATOR_A)], 'c3'),
+      page(
+        many.map((id) => event('goal_created', id, INTEGRATOR_A)),
+        'c3',
+      ),
+    );
+    for (const id of many) {
+      server.goalRecords.set(id, goalRecord(rawGoal(id, INTEGRATOR_A)));
+    }
+    const scan = await scanGoals(reader(), { integrators: [INTEGRATOR_A] });
+    expect(LEDGER_KEYS_PER_CALL).toBe(200);
+    expect(goalReads()).toEqual([200, 1]);
+    expect(ids(scan.goals)).toEqual(many);
+    expect(scan.goals[0]).toEqual(toGoal(rawGoal(100n, INTEGRATOR_A)));
+    // No goal is read by simulation any more.
+    expect(server.methods()).not.toContain('simulateTransaction');
+  });
+
+  it('drops a goal with no entry: it closed after its last event', async () => {
+    server.eventPages.set(
+      'start',
+      page(
+        [
+          event('goal_created', 1n, INTEGRATOR_A),
+          event('goal_created', 7n, INTEGRATOR_A),
+        ],
+        'c3',
+      ),
     );
     const scan = await scanGoals(reader(), { integrators: [INTEGRATOR_A] });
-    expect(scan.goals).toEqual([]);
+    expect(ids(scan.goals)).toEqual([1n]);
+    expect(goalReads()).toEqual([2]);
+  });
+
+  it('decodes a stored goal as goal() decodes the same data', async () => {
+    const raw: RawGoal = {
+      ...rawGoal(9n, INTEGRATOR_B, OWNER),
+      rule: { tag: 'Lock' },
+      principal: 20_000_000n,
+      shares: 19_000_000n,
+      last_collected_period: 2n,
+      missed_count: 1n,
+    };
+    const decoded = goalFromEntry(goalRecord(raw));
+    expect(decoded).toEqual(toGoal(raw));
+    server.simulateBy = () =>
+      simulationSuccess(retvalOf('target-savings', 'goal', raw));
+    expect(decoded).toEqual(
+      toGoal(
+        await reader().read<RawGoal>('target-savings', 'goal', { id: 9n }),
+      ),
+    );
+    // The key is DataKey::Goal(id), in persistent storage.
+    const key = goalKey(TS, 9n);
+    expect(key.type).toBe('contractData');
+    expect(
+      key.type === 'contractData' && scValToNative(key.contractData.key),
+    ).toEqual(['Goal', 9n]);
+  });
+
+  it('refuses a stored goal that is not a GoalRecord::V1', () => {
+    const goal = retvalOf('target-savings', 'goal', rawGoal(9n, INTEGRATOR_A));
+    expect(() =>
+      goalFromEntry(ScVal.scvVec([ScVal.scvSymbol('V2'), goal])),
+    ).toThrow('not a GoalRecord::V1');
+    expect(() => goalFromEntry(goal)).toThrow('not a GoalRecord::V1');
   });
 
   it('uses the margin only once the retention window is full', () => {
@@ -417,6 +490,21 @@ describe('runPass', () => {
     );
   });
 
+  it('works as before with one read-only instance when nothing is due', async () => {
+    const pass = await runPass(reader(), {
+      integrators: [INTEGRATOR_A],
+      now: () => at(START + 60),
+    });
+    expect(pass).toMatchObject({
+      results: [{ goalId: 1n, action: 'not-due' }],
+    });
+    expect(pass.failure).toBeUndefined();
+    // Nothing due, so no channel account is looked up.
+    expect(
+      server.calls.filter((call) => call.keys?.includes('account') === true),
+    ).toEqual([]);
+  });
+
   it.each([
     [100, 'GoalNotFound'],
     [108, 'NotDue'],
@@ -476,6 +564,147 @@ describe('runPass', () => {
     ]);
     expect(inner).not.toHaveBeenCalled();
     expect(server.methods()).not.toContain('sendTransaction');
+  });
+});
+
+describe('runPass with channels', () => {
+  const now = () => at(START + DAY + 60);
+  const CHANNEL_A = USER;
+  const CHANNEL_B = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(9));
+  const channel = (
+    publicKey: string,
+    signTransaction: SignTransaction = passThroughSigner(),
+  ) =>
+    createLoktin({
+      network: 'testnet',
+      server,
+      publicKey,
+      signer: { signTransaction },
+    });
+  /** The source account of each sent transaction, in order. */
+  const senders = () =>
+    server.calls
+      .filter((call) => call.method === 'sendTransaction')
+      .map(
+        (call) =>
+          (
+            TransactionBuilder.fromXdr(
+              call.envelope ?? '',
+              TESTNET_PASSPHRASE,
+            ) as Transaction
+          ).source,
+      );
+
+  beforeEach(() => {
+    vi.useFakeTimers({ now: now() });
+    // Four due goals through integrator A.
+    server.eventPages.set(
+      'start',
+      page(
+        [1n, 2n, 3n, 4n].map((id) => event('goal_created', id, INTEGRATOR_A)),
+        'c3',
+      ),
+    );
+    for (const id of [1n, 2n, 3n, 4n]) {
+      server.goalRecords.set(id, goalRecord(rawGoal(id, INTEGRATOR_A)));
+    }
+    const reads = server.simulateBy;
+    server.simulateBy = (call) =>
+      call.method === 'collect'
+        ? simulationSuccess(ScVal.scvVoid())
+        : reads?.(call);
+    queueWrite(server, ScVal.scvVoid());
+  });
+
+  it('shares the due goals out: two channels collect four, each at least one', async () => {
+    const pass = (await settle(
+      runPass([channel(CHANNEL_A), channel(CHANNEL_B)], {
+        integrators: [INTEGRATOR_A],
+        now,
+      }),
+    )) as Awaited<ReturnType<typeof runPass>>;
+    expect(pass.failure).toBeUndefined();
+    // One entry per goal, in scan order.
+    expect(
+      pass.results.map((result) => [result.goalId, result.action]),
+    ).toEqual([
+      [1n, 'collected'],
+      [2n, 'collected'],
+      [3n, 'collected'],
+      [4n, 'collected'],
+    ]);
+    const sent = senders();
+    expect(sent).toHaveLength(4);
+    expect(
+      sent.filter((source) => source === CHANNEL_A).length,
+    ).toBeGreaterThan(0);
+    expect(
+      sent.filter((source) => source === CHANNEL_B).length,
+    ).toBeGreaterThan(0);
+    // Both channels' accounts were checked, in one call, before any send.
+    const check = server.calls.findIndex(
+      (call) =>
+        call.method === 'getLedgerEntries' &&
+        call.keys?.every((type) => type === 'account') === true,
+    );
+    expect(server.calls[check]?.keys).toEqual(['account', 'account']);
+    expect(check).toBeLessThan(server.methods().indexOf('simulateTransaction'));
+  });
+
+  it('fails before any send when a channel account does not exist', async () => {
+    server.missingAccounts.add(CHANNEL_B);
+    const pass = (await settle(
+      runPass([channel(CHANNEL_A), channel(CHANNEL_B)], {
+        integrators: [INTEGRATOR_A],
+        now,
+      }),
+    )) as Awaited<ReturnType<typeof runPass>>;
+    expect(pass.results).toEqual([]);
+    expect(pass.failure).toEqual({
+      channel: CHANNEL_B,
+      code: 'INVALID_INPUT',
+      message: `the channel account ${CHANNEL_B} does not exist`,
+    });
+    expect(server.methods()).not.toContain('simulateTransaction');
+    expect(server.methods()).not.toContain('sendTransaction');
+  });
+
+  it('stops every channel when one fails, and reports that failure', async () => {
+    const refusing: SignTransaction = () =>
+      Promise.reject(new Error('the wallet is locked'));
+    const pass = (await settle(
+      runPass([channel(CHANNEL_A), channel(CHANNEL_B, refusing)], {
+        integrators: [INTEGRATOR_A],
+        now,
+      }),
+    )) as Awaited<ReturnType<typeof runPass>>;
+    expect(pass.failure).toMatchObject({
+      goalId: 2n,
+      channel: CHANNEL_B,
+      code: 'SIGNER_REFUSED',
+    });
+    // Channel A finished goal 1; goals 3 and 4 were never taken.
+    expect(pass.results).toEqual([
+      expect.objectContaining({ goalId: 1n, action: 'collected' }),
+    ]);
+    expect(senders()).toEqual([CHANNEL_A]);
+    const collects = server
+      .invocations()
+      .filter((call) => call.method === 'collect')
+      .map((call) => scValToNative(call.args[0] as ScVal) as bigint);
+    expect(collects).toEqual([1n, 2n]);
+  });
+
+  it('refuses a bad channel list before any network call', async () => {
+    const options = { integrators: [INTEGRATOR_A], now };
+    await expect(runPass([], options)).rejects.toThrow(InvalidInputError);
+    await expect(
+      runPass([channel(CHANNEL_A), channel(CHANNEL_A)], options),
+    ).rejects.toThrow('listed twice');
+    await expect(
+      runPass([createLoktin({ network: 'testnet', server })], options),
+    ).rejects.toThrow('publicKey and a signer');
+    expect(server.calls).toEqual([]);
   });
 });
 
