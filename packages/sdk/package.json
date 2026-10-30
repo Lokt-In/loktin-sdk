@@ -48,7 +48,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json && tsc -p e2e/tsconfig.json && tsc -p smoke/tsconfig.json && tsc -p sizing/tsconfig.json"
   },
   "devDependencies": {
-    "@stellar/stellar-sdk": "17.2.1"
+    "@stellar/stellar-sdk": "17.3.0"
   },
   "peerDependencies": {
     "@stellar/stellar-sdk": "^17.2.1"
