@@ -30,4 +30,4 @@ fi
 
 cd "$(dirname "$0")/.."
 KEEPER_SIZING_GOALS="$goals" E2E_CONFIG=vitest.sizing.config.js \
-  exec bash scripts/e2e.sh --reporter=verbose
+  exec bash scripts/e2e.sh --reporter=verbose keeper.sizing
