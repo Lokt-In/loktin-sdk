@@ -1,0 +1,21 @@
+{
+  "measuredWith": "rolldown, minified ESM, @stellar/stellar-sdk external, gzip level 9",
+  "exports": {
+    ".": {
+      "minifiedBytes": 63011,
+      "gzipBytes": 16863
+    },
+    "./target-savings": {
+      "minifiedBytes": 58964,
+      "gzipBytes": 14845
+    },
+    "./spend-save": {
+      "minifiedBytes": 57256,
+      "gzipBytes": 14049
+    },
+    "./keeper": {
+      "minifiedBytes": 58298,
+      "gzipBytes": 15383
+    }
+  }
+}

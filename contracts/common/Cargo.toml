@@ -9,6 +9,11 @@ publish.workspace = true
 crate-type = ["rlib"]
 doctest = false
 
+[features]
+# The resource tests' limits (T10). Only the contracts' tests turn it on, so
+# nothing behind it reaches a release Wasm.
+testutils = []
+
 [dependencies]
 soroban-sdk = { workspace = true }
 
