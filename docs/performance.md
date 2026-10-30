@@ -110,4 +110,4 @@ How many goals a keeper pass collects with 1, 2 and 4 channel accounts is in [ke
 
 ## Load and stress test
 
-This comes with the next part.
+How the contracts and the SDK behave as concurrent users ramp up on a local network, the breaking point, and the checks that everything recovers, are in [load-test.md](load-test.md).

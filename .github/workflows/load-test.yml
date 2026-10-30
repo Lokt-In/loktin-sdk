@@ -1,0 +1,56 @@
+name: Load test
+
+# The load and stress test (T10, W71), on a private local network in the
+# runner, never on testnet. Run by hand and weekly, so pull requests stay
+# fast. Its results are the run's load-test.json artifact (docs/load-test.md).
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      STELLAR_CLI_VERSION: 28.1.0
+      STELLAR_CLI_SHA256: c1680deee94301d33ada7a17f98411e642a4248c727afbd2e43050d345746462
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup show
+      - name: Download Stellar CLI
+        working-directory: ${{ runner.temp }}
+        run: curl -fsSLO "https://github.com/stellar/stellar-cli/releases/download/v${STELLAR_CLI_VERSION}/stellar-cli-${STELLAR_CLI_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+      - name: Verify Stellar CLI checksum
+        working-directory: ${{ runner.temp }}
+        run: echo "${STELLAR_CLI_SHA256}  stellar-cli-${STELLAR_CLI_VERSION}-x86_64-unknown-linux-gnu.tar.gz" | sha256sum --check --strict
+      - name: Install Stellar CLI
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir stellar-cli
+          tar -xzf "stellar-cli-${STELLAR_CLI_VERSION}-x86_64-unknown-linux-gnu.tar.gz" -C stellar-cli stellar
+          echo "${RUNNER_TEMP}/stellar-cli" >> "$GITHUB_PATH"
+      - run: stellar contract build
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Run the load and stress test
+        env:
+          LOAD_OUTPUT: ${{ runner.temp }}/load-test
+        run: npm run sizing:load
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: load-test
+          path: ${{ runner.temp }}/load-test/load-test.json
+          if-no-files-found: warn
+          retention-days: 90
