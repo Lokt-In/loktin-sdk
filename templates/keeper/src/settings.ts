@@ -1,14 +1,17 @@
 // The keeper's settings, from environment variables only (E9). Every value
 // is checked before any network call. The secret is never printed.
-import { StrKey } from '@stellar/stellar-sdk/base';
+import { Keypair, StrKey } from '@stellar/stellar-sdk/base';
 
 /** 1 XLM, in stroops (E10, W98). */
 export const DEFAULT_MAX_FEE_STROOPS = 10_000_000n;
 export const TESTNET_RPC_URL = 'https://soroban-testnet.stellar.org';
 
 export interface Settings {
-  /** The keeper's secret key. Never logged. */
-  readonly secret: string;
+  /**
+   * The keeper's secret keys, in file order: one per channel (E3, W112).
+   * Never logged.
+   */
+  readonly secrets: readonly string[];
   readonly integrators: readonly string[] | 'all';
   readonly owners: readonly string[];
   readonly maxFeeStroops: bigint;
@@ -53,9 +56,46 @@ function addressList(
 }
 
 /**
+ * The keys of a key file: one per line, each line trimmed (so CRLF files
+ * work), blank lines ignored. Problems name lines by number, never a key.
+ */
+function keysOf(text: string, problems: string[]): string[] {
+  const keys: string[] = [];
+  const lineOf = new Map<string, number>();
+  text.split('\n').forEach((raw, index) => {
+    const line = raw.trim();
+    if (line === '') {
+      return;
+    }
+    const number = index + 1;
+    if (!StrKey.isValidEd25519SecretSeed(line)) {
+      problems.push(
+        `line ${String(number)} of the key file is not a Stellar secret key (S...)`,
+      );
+      return;
+    }
+    const publicKey = Keypair.fromSecret(line).publicKey();
+    const first = lineOf.get(publicKey);
+    if (first !== undefined) {
+      problems.push(
+        `the key file has the same key on lines ${String(first)} and ${String(number)}`,
+      );
+      return;
+    }
+    lineOf.set(publicKey, number);
+    keys.push(line);
+  });
+  if (keys.length === 0 && problems.length === 0) {
+    problems.push('the key file holds no key');
+  }
+  return keys;
+}
+
+/**
  * Reads the settings:
- * - `LOKTIN_KEEPER_SECRET_FILE`, a file holding the secret key (preferred),
- *   or `LOKTIN_KEEPER_SECRET`, the key itself (a weaker fallback, E4);
+ * - `LOKTIN_KEEPER_SECRET_FILE`, a file holding the keeper's secret key, or
+ *   several keys, one per line, each a channel (preferred, E3, W112); or
+ *   `LOKTIN_KEEPER_SECRET`, one key itself (a weaker fallback, E4);
  * - `LOKTIN_KEEPER_INTEGRATORS`, a comma list of addresses, or `all`;
  * - `LOKTIN_KEEPER_OWNERS`, an optional comma list of owner addresses;
  * - `LOKTIN_KEEPER_MAX_FEE_STROOPS`, the fee ceiling, 10,000,000 (1 XLM) by default;
@@ -69,7 +109,7 @@ export async function loadSettings(
 
   const file = env['LOKTIN_KEEPER_SECRET_FILE']?.trim() ?? '';
   const inline = env['LOKTIN_KEEPER_SECRET'] ?? '';
-  let secret = '';
+  let secrets: string[] = [];
   if (file !== '' && inline !== '') {
     problems.push(
       'set only one of LOKTIN_KEEPER_SECRET_FILE and LOKTIN_KEEPER_SECRET',
@@ -79,20 +119,26 @@ export async function loadSettings(
       'set LOKTIN_KEEPER_SECRET_FILE (or, as a weaker fallback, LOKTIN_KEEPER_SECRET)',
     );
   } else if (file !== '') {
+    let text: string | undefined;
     try {
-      secret = (await readFile(file)).trim();
+      text = await readFile(file);
     } catch {
       problems.push(
         `could not read the file LOKTIN_KEEPER_SECRET_FILE names (${file})`,
       );
     }
+    if (text !== undefined) {
+      secrets = keysOf(text, problems);
+    }
   } else {
-    secret = inline.trim();
-  }
-  if (secret !== '' && !StrKey.isValidEd25519SecretSeed(secret)) {
-    problems.push('the keeper secret is not a Stellar secret key (S...)');
-  } else if (secret === '' && problems.length === 0) {
-    problems.push('the keeper secret is empty');
+    const secret = inline.trim();
+    if (secret === '') {
+      problems.push('the keeper secret is empty');
+    } else if (!StrKey.isValidEd25519SecretSeed(secret)) {
+      problems.push('the keeper secret is not a Stellar secret key (S...)');
+    } else {
+      secrets = [secret];
+    }
   }
 
   const integratorsValue = env['LOKTIN_KEEPER_INTEGRATORS']?.trim() ?? '';
@@ -134,5 +180,5 @@ export async function loadSettings(
   if (problems.length > 0) {
     throw new SettingsError(problems);
   }
-  return { secret, integrators, owners, maxFeeStroops, rpcUrl };
+  return { secrets, integrators, owners, maxFeeStroops, rpcUrl };
 }

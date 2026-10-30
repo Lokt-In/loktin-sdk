@@ -4,7 +4,14 @@ import type { PassResult } from '@loktin/sdk/keeper';
 
 export type LogLine = Readonly<Record<string, unknown>>;
 
-export function reportLines(pass: PassResult, keeper: string): LogLine[] {
+/**
+ * The log lines of a pass. `channels` are the keys' public keys, in key file
+ * order; the first is logged as `keeper`, so one key logs as before.
+ */
+export function reportLines(
+  pass: PassResult,
+  channels: readonly string[],
+): LogLine[] {
   const lines: LogLine[] = pass.results.map((result) => ({
     goalId: result.goalId,
     action: result.action,
@@ -15,20 +22,23 @@ export function reportLines(pass: PassResult, keeper: string): LogLine[] {
   }));
   if (pass.failure !== undefined) {
     lines.push({
-      goalId: pass.failure.goalId,
+      // No goal id for a failure before any collect.
+      goalId: pass.failure.goalId ?? null,
       action: 'failed',
       reason: `${pass.failure.code}: ${pass.failure.message}`,
       // Set for a sent or failed transaction, so it can be looked up.
       hash: pass.failure.hash ?? null,
       ledger: null,
       amount: null,
+      channel: pass.failure.channel ?? null,
     });
   }
   const count = (action: string) =>
     pass.results.filter((result) => result.action === action).length;
   lines.push({
     summary: true,
-    keeper,
+    keeper: channels[0] ?? null,
+    channels,
     goalsFound: pass.scan.goals.length,
     collected: count('collected'),
     skipped: count('skipped'),

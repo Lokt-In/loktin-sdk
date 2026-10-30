@@ -7,11 +7,9 @@
 // ends, with or without skips, and 1 on a failure or bad settings (E7). Logs
 // are one JSON line per goal, then a summary line, with public keys and
 // hashes only (E8).
-import { Keypair } from '@stellar/stellar-sdk/base';
-import { basicNodeSigner } from '@stellar/stellar-sdk/contract';
 import { readFile } from 'node:fs/promises';
-import { TESTNET, createLoktin } from '@loktin/sdk';
-import { feeCeilingSigner, runPass } from '@loktin/sdk/keeper';
+import { runPass } from '@loktin/sdk/keeper';
+import { keepersOf } from './keepers.ts';
 import { reportLines, toLine } from './report.ts';
 import { SettingsError, loadSettings } from './settings.ts';
 
@@ -30,23 +28,11 @@ async function main(): Promise<number> {
     }
     throw error;
   }
-  const keypair = Keypair.fromSecret(settings.secret);
-  const keeper = keypair.publicKey();
-  // Testnet only for now. createLoktin checks the RPC URL before any call.
-  let loktin;
+  // One instance per key, each a channel. createLoktin checks the RPC URL
+  // before any call.
+  let keepers;
   try {
-    loktin = createLoktin({
-      network: TESTNET,
-      rpcUrl: settings.rpcUrl,
-      publicKey: keeper,
-      signer: {
-        signTransaction: feeCeilingSigner(
-          basicNodeSigner(keypair, TESTNET.passphrase).signTransaction,
-          settings.maxFeeStroops,
-          TESTNET.passphrase,
-        ),
-      },
-    });
+    keepers = keepersOf(settings);
   } catch (error) {
     console.error(
       `keeper settings: ${error instanceof Error ? error.message : String(error)}`,
@@ -54,11 +40,18 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const pass = await runPass(loktin, {
+  const [first] = keepers;
+  if (first === undefined) {
+    // loadSettings never returns without a key.
+    throw new Error('no keeper key');
+  }
+  // One key passes the single instance, so it runs exactly as on 0.4.0.
+  const pass = await runPass(keepers.length === 1 ? first : keepers, {
     integrators: settings.integrators,
     owners: settings.owners,
   });
-  for (const record of reportLines(pass, keeper)) {
+  const channels = keepers.map((keeper) => keeper.config.publicKey ?? '');
+  for (const record of reportLines(pass, channels)) {
     console.log(toLine(record));
   }
   return pass.failure === undefined ? 0 : 1;
