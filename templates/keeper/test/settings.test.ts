@@ -7,8 +7,11 @@ import {
   loadSettings,
 } from '../src/settings.ts';
 
-// A throwaway key made in memory for the tests; it is never printed.
+// Throwaway keys made in memory for the tests; they are never printed.
 const SECRET = Keypair.random().secret();
+const SECRET_2 = Keypair.random().secret();
+const SECRET_3 = Keypair.random().secret();
+const ALL_SECRETS = [SECRET, SECRET_2, SECRET_3];
 const INTEGRATOR = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(1));
 const OWNER = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(2));
 
@@ -22,8 +25,10 @@ async function problemsOf(
     await loadSettings(env, readFile);
   } catch (error) {
     if (error instanceof SettingsError) {
-      // No message ever holds the secret.
-      expect(error.problems.join(' ')).not.toContain(SECRET);
+      // No message ever holds a key.
+      for (const secret of ALL_SECRETS) {
+        expect(error.problems.join(' ')).not.toContain(secret);
+      }
       return error.problems;
     }
     throw error;
@@ -44,7 +49,7 @@ describe('the keeper settings', () => {
           : noFile(),
     );
     expect(settings).toEqual({
-      secret: SECRET,
+      secrets: [SECRET],
       integrators: [INTEGRATOR],
       owners: [],
       maxFeeStroops: DEFAULT_MAX_FEE_STROOPS,
@@ -66,7 +71,7 @@ describe('the keeper settings', () => {
         noFile,
       ),
     ).toEqual({
-      secret: SECRET,
+      secrets: [SECRET],
       integrators: 'all',
       owners: [OWNER, INTEGRATOR],
       maxFeeStroops: 2_500_000n,
@@ -121,7 +126,7 @@ describe('the keeper settings', () => {
         { ...integrators, LOKTIN_KEEPER_SECRET_FILE: '/run/secrets/keeper' },
         () => Promise.resolve('  \n'),
       ),
-    ).toEqual(['the keeper secret is empty']);
+    ).toEqual(['the key file holds no key']);
     expect(
       await problemsOf({
         ...integrators,
@@ -151,5 +156,72 @@ describe('the keeper settings', () => {
         LOKTIN_KEEPER_MAX_FEE_STROOPS: '0',
       }),
     ).toHaveLength(4);
+  });
+
+  describe('with several keys in the file', () => {
+    const fromFile = (text: string) =>
+      loadSettings(
+        {
+          LOKTIN_KEEPER_SECRET_FILE: '/run/secrets/keeper',
+          LOKTIN_KEEPER_INTEGRATORS: INTEGRATOR,
+        },
+        () => Promise.resolve(text),
+      );
+    const fileProblems = (text: string) =>
+      problemsOf(
+        {
+          LOKTIN_KEEPER_SECRET_FILE: '/run/secrets/keeper',
+          LOKTIN_KEEPER_INTEGRATORS: INTEGRATOR,
+        },
+        () => Promise.resolve(text),
+      );
+
+    it('read one key exactly as before', async () => {
+      expect((await fromFile(`${SECRET}\n`)).secrets).toEqual([SECRET]);
+      expect((await fromFile(SECRET)).secrets).toEqual([SECRET]);
+    });
+
+    it('give three keys back in file order', async () => {
+      expect(
+        (await fromFile(`${SECRET_2}\n${SECRET}\n${SECRET_3}\n`)).secrets,
+      ).toEqual([SECRET_2, SECRET, SECRET_3]);
+    });
+
+    it('accept blank lines, a trailing newline and CRLF', async () => {
+      expect(
+        (await fromFile(`\r\n${SECRET}\r\n\r\n  ${SECRET_2}  \r\n\n`)).secrets,
+      ).toEqual([SECRET, SECRET_2]);
+    });
+
+    it('name a bad line by its number', async () => {
+      expect(await fileProblems(`${SECRET}\nnot-a-key\n${SECRET_2}\n`)).toEqual(
+        ['line 2 of the key file is not a Stellar secret key (S...)'],
+      );
+      // A public key is not a secret key either.
+      expect(await fileProblems(`${SECRET}\n${INTEGRATOR}\n`)).toEqual([
+        'line 2 of the key file is not a Stellar secret key (S...)',
+      ]);
+    });
+
+    it('refuse the same key twice', async () => {
+      expect(
+        await fileProblems(`${SECRET}\n${SECRET_2}\n\n${SECRET}\n`),
+      ).toEqual(['the key file has the same key on lines 1 and 4']);
+    });
+
+    it('refuse a file of blank lines', async () => {
+      expect(await fileProblems('\n  \n\r\n')).toEqual([
+        'the key file holds no key',
+      ]);
+    });
+
+    it('take one key only from the inline variable', async () => {
+      expect(
+        await problemsOf({
+          LOKTIN_KEEPER_SECRET: `${SECRET}\n${SECRET_2}`,
+          LOKTIN_KEEPER_INTEGRATORS: INTEGRATOR,
+        }),
+      ).toEqual(['the keeper secret is not a Stellar secret key (S...)']);
+    });
   });
 });
