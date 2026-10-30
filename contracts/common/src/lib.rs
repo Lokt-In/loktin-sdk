@@ -7,6 +7,8 @@
 
 #![no_std]
 
+#[cfg(feature = "testutils")]
+pub mod budgets;
 pub mod calendar;
 pub mod errors;
 pub mod events;

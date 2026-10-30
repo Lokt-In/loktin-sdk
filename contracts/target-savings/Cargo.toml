@@ -18,4 +18,5 @@ stellar-macros = "=0.8.0"
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+loktin-common = { path = "../common", features = ["testutils"] }
 proptest = { workspace = true }
