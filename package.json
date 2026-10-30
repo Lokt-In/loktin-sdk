@@ -17,6 +17,7 @@
     "test:e2e": "bash scripts/e2e.sh",
     "sizing:keeper": "bash scripts/keeper-sizing.sh",
     "sizing:reads": "bash scripts/read-overhead.sh",
+    "sizing:load": "bash scripts/load-test.sh",
     "size:check": "node scripts/bundle-size.mjs --check",
     "size:update": "node scripts/bundle-size.mjs --update"
   },
