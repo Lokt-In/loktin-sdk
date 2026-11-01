@@ -48,4 +48,23 @@ LOAD_STEPS=10,25 npm run sizing:load
 
 ## Results
 
-The first workflow run's numbers go here.
+The first workflow run: run 41090874144, 2026-10-30, commit `51d654b`, SDK 0.5.0, a GitHub runner with 4 CPUs and 16 GB, 795 s.
+
+| Users | Phase  | Writes sent | Success | p50 (ms) | p95 (ms) | Max (ms) | Transactions per ledger, average | Transactions per ledger, peak | Errors                      |
+| ----- | ------ | ----------- | ------- | -------- | -------- | -------- | -------------------------------- | ----------------------------- | --------------------------- |
+| 10    | load   | 60          | 100%    | 1,170    | 2,207    | 2,221    | 6                                | 10                            | none                        |
+| 25    | load   | 150         | 100%    | 1,433    | 2,496    | 2,507    | 15                               | 25                            | none                        |
+| 50    | load   | 300         | 100%    | 1,947    | 2,886    | 2,971    | 25                               | 50                            | none                        |
+| 100   | load   | 600         | 100%    | 2,971    | 4,180    | 4,827    | 31.58                            | 100                           | none                        |
+| 200   | stress | 1,200       | 88.8%   | 2,966    | 4,815    | 5,186    | 13.33                            | 80                            | `PENDING` 134               |
+| 400   | stress | 2,400       | 77.5%   | 5,444    | 11,115   | 22,431   | 23.83                            | 75                            | `PENDING` 480, `NETWORK` 61 |
+
+**The breaking point** was 200 users, with success at 88.8%, under the 95% rule. 400 users was the one step past it, so 800 did not run.
+
+Every write that did not succeed was a `PENDING` or `NETWORK` result. There were no `TRY_AGAIN_LATER` results and no failures of the test's own. Reads failed only at 400 users, 9 of 1,191.
+
+**The keeper** collected 100 goals at 200 users, with none failed. At 400 it collected 7, then stopped on one `PENDING` result. After the load stopped it caught up and collected all 400.
+
+**Recovery:** of 614 pending hashes, 0 landed, 614 were gone and 0 were stuck. Token balances matched the recorded totals in both contracts. 400 goals were checked, and none was collected twice.
+
+This is a private network on one runner, so it shows how the contracts and the SDK behave under load, and it is not a figure for the public network.
