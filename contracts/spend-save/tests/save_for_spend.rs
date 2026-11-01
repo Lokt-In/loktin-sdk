@@ -110,6 +110,27 @@ fn cap_reached_exactly_then_trims_everything() {
 }
 
 #[test]
+fn skim_trimmed_to_nothing_moves_no_tokens() {
+    let s = common::setup();
+    s.mint(&s.user, 10_000);
+    s.enroll(percent(1_000), Some(100), Destination::Balance, 1);
+    s.contract.save_for_spend(&s.user, &s.integrator, &1_000);
+    assert_eq!(
+        s.contract.save_for_spend(&s.user, &s.integrator, &500),
+        saving(50, 50, 0, 0)
+    );
+    assert_eq!(
+        s.env
+            .events()
+            .all()
+            .filter_by_contract(&s.token.address)
+            .events()
+            .len(),
+        0
+    );
+}
+
+#[test]
 fn cap_trims_part_of_a_skim() {
     let s = common::setup();
     s.mint(&s.user, 10_000);

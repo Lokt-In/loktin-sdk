@@ -10,6 +10,7 @@ const T_1970_01_01: u64 = 0;
 const T_2000_02_29: u64 = 951_782_400;
 const T_2024_02_29: u64 = 1_709_164_800;
 const T_2100_03_01: u64 = 4_107_542_400;
+const T_2026_03_01: u64 = 1_772_323_200;
 const T_2026_10_22: u64 = 1_792_627_200;
 const T_2026_12_31_23_59_59: u64 = 1_798_761_599;
 
@@ -147,6 +148,42 @@ fn next_window_across_leap_february() {
     let mar_28 = T_2024_02_29 + 28 * DAY;
     assert_eq!(utc_date(mar_28), Ok((2024, 3, 28)));
     assert_eq!(next_window(T_2024_02_29, 28), Ok((mar_28, mar_28 + DAY)));
+}
+
+#[test]
+fn next_window_across_common_february() {
+    // 2026-02-28 is followed directly by 2026-03-01.
+    let feb_28 = T_2026_03_01 - DAY;
+    assert_eq!(utc_date(feb_28), Ok((2026, 2, 28)));
+    assert_eq!(
+        next_window(feb_28, 1),
+        Ok((T_2026_03_01, T_2026_03_01 + DAY))
+    );
+}
+
+#[test]
+fn next_window_across_century_februaries() {
+    // 2100 is divisible by 100 and not by 400, so it is not a leap year.
+    let feb_28_2100 = T_2100_03_01 - DAY;
+    assert_eq!(
+        next_window(feb_28_2100, 1),
+        Ok((T_2100_03_01, T_2100_03_01 + DAY))
+    );
+    // 2000 is divisible by 400, so it is: 2000-02-29 comes before 2000-03-01.
+    let mar_1_2000 = T_2000_02_29 + DAY;
+    assert_eq!(
+        next_window(T_2000_02_29 - DAY, 1),
+        Ok((mar_1_2000, mar_1_2000 + DAY))
+    );
+}
+
+#[test]
+fn next_window_across_30_day_month() {
+    // 2026-11-30 is followed directly by 2026-12-01.
+    let nov_1 = T_2026_10_22 + 10 * DAY;
+    let dec_1 = nov_1 + 30 * DAY;
+    assert_eq!(utc_date(dec_1), Ok((2026, 12, 1)));
+    assert_eq!(next_window(dec_1 - DAY, 1), Ok((dec_1, dec_1 + DAY)));
 }
 
 #[test]

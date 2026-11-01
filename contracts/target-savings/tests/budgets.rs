@@ -11,7 +11,7 @@
 mod common;
 
 use common::{with_ledger, MAX_ENTRY_TTL, START, WEEK};
-use loktin_common::budgets::check;
+use loktin_common::budgets::{check, Measured};
 use loktin_common::measured;
 use loktin_target_savings::{TargetSavingsClient, WithdrawalRule};
 use soroban_sdk::testutils::{Address as _, EnvTestConfig, Ledger as _};
@@ -224,4 +224,19 @@ fn access_control_writes() {
     check("target-savings", "accept_admin_transfer", &measured!(s.env));
     s.contract.renounce_admin();
     check("target-savings", "renounce_admin", &measured!(s.env));
+}
+
+#[test]
+#[should_panic(expected = "instructions is 100000000, not under 25%")]
+fn a_figure_on_the_line_fails() {
+    let m = Measured {
+        instructions: 100_000_000,
+        mem_bytes: 0,
+        disk_read_entries: 0,
+        disk_read_bytes: 0,
+        write_entries: 0,
+        write_bytes: 0,
+        contract_events_size_bytes: 0,
+    };
+    check("target-savings", "on the line", &m);
 }
