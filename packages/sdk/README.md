@@ -7,17 +7,17 @@ A TypeScript SDK for Loktin's savings contracts on Stellar. It has no user inter
 
 ## Status
 
-- This is the preview release, `0.5.0`. Its API may change before `1.0.0`.
+- This is `1.0.0`, the first stable release. Its API changes only in a new major version.
 - It works on Stellar testnet only. The contracts have no mainnet deployment, and the SDK refuses the public network.
-- It is designed for browsers and Node. Browser support will be confirmed with the reference app, and is not claimed yet.
+- Node 22, 24 and 26 are tested in CI. The SDK was also tested by hand in a browser through the reference app, as recorded in its [browser test](https://github.com/Lokt-In/loktin-sdk-example/blob/main/docs/smoke-test.md).
 
 ## Install
 
 ```sh
-npm install @loktin/sdk@next @stellar/stellar-sdk
+npm install @loktin/sdk @stellar/stellar-sdk
 ```
 
-`@stellar/stellar-sdk` is a peer dependency. Your app and the SDK then share one copy of it, so the wallet types and XDR values your app passes in are the ones the SDK expects, and your bundle holds stellar-sdk once. The SDK needs version 17.2.1 or a later 17.x.
+`@stellar/stellar-sdk` is a peer dependency. Your app and the SDK then share one copy of it, so the wallet types and XDR values your app passes in are the ones the SDK expects, and your bundle holds stellar-sdk once. The SDK needs version 17.4.0 or a later 17.x.
 
 ## Quick start
 
