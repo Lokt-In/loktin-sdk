@@ -15,7 +15,7 @@ The steps are the numbers of users writing at the same time, by default 10, 25, 
 - **Load:** the first four steps, 10 to 100 users.
 - **Stress:** the steps after them, past normal levels. During each stress step a keeper pass with 4 channel accounts runs at the same time as the users, collecting the goals that are due.
 
-For each step the test records the users, the writes sent, the success rate, the p50, p95 and longest time from the call to the confirmed result, the TRY_AGAIN_LATER answers, the transactions per ledger (average and peak), and the errors by SDK error code. Failures that are the user's own, such as low funds, are counted separately and left out of the success rate. On stress steps it also records what the keeper collected, skipped and failed.
+For each step the test records the users, the writes sent, the success rate, the p50, p95 and longest time from the call to the confirmed result, the TRY_AGAIN_LATER answers, the transactions per ledger (average and peak), and the errors by SDK error code. Failures that are the user's own, such as low funds, are counted separately and left out of the success rate. On stress steps it also records what the keeper collected, skipped and failed. If a stress step's keeper pass loses its event scan to network errors, the step records that as its keeper failure and the run goes on. Any other keeper error, and any failure in the catch-up pass after the load, still fails the run.
 
 ## The breaking point
 
