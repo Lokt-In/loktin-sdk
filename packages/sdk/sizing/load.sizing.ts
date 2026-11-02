@@ -30,6 +30,7 @@ import { ScVal } from '@stellar/stellar-sdk/xdr';
 import {
   type Loktin,
   LoktinError,
+  NetworkError,
   type NetworkSettings,
   PendingError,
   TransactionFailedError,
@@ -284,6 +285,33 @@ function keeperFigures(pass: PassResult): KeeperFigures {
   };
 }
 
+/**
+ * A stress step's keeper pass (W168). A scan the overloaded RPC cuts off is
+ * that step's keeper failure, not the run's; the catch-up pass after the
+ * load stays strict.
+ */
+async function stressPass(
+  channels: readonly Loktin[],
+  integrator: string,
+): Promise<KeeperFigures> {
+  try {
+    return keeperFigures(
+      await runPass(channels, { integrators: [integrator] }),
+    );
+  } catch (error) {
+    if (!(error instanceof NetworkError)) {
+      throw error;
+    }
+    return {
+      collected: 0,
+      skipped: 0,
+      notDue: 0,
+      failed: 1,
+      failure: `${error.code}: ${error.message}`,
+    };
+  }
+}
+
 interface Step {
   readonly users: number;
   readonly phase: 'load' | 'stress';
@@ -463,9 +491,9 @@ it(`runs the load steps ${STEPS.join(', ')} and recovers`, async () => {
         }
       }
     };
-    const [, keeperPass] = await Promise.all([
+    const [, keeper] = await Promise.all([
       Promise.all(users.slice(0, total).map(roundsOf)),
-      stress ? runPass(channels, { integrators: [integrator] }) : undefined,
+      stress ? stressPass(channels, integrator) : undefined,
     ]);
     const stepMs = Date.now() - stepStarted;
 
@@ -528,9 +556,7 @@ it(`runs the load steps ${STEPS.join(', ')} and recovers`, async () => {
       reads,
       readErrors,
       stepSeconds: Math.round(stepMs / 1000),
-      ...(keeperPass === undefined
-        ? {}
-        : { keeper: keeperFigures(keeperPass) }),
+      ...(keeper === undefined ? {} : { keeper }),
       ...(broke === undefined ? {} : { broke }),
     };
     steps.push(step);

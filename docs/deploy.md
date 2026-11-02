@@ -79,7 +79,7 @@ To use other alias names, set `LOKTIN_DEPLOYER`, `LOKTIN_ADMIN`, `LOKTIN_FEE_ADM
 
 ## Upgrading
 
-An upgrade replaces the code of the recorded contracts in place, so their ids stay the same (C5). Each upgrade has a decision note in `docs/decisions` that explains why the stored records stay readable. The first one is `contracts-v0.2.0`, which adds accrued fees (0002).
+An upgrade replaces the code of the recorded contracts in place, so their ids stay the same (C5). Each upgrade must keep the stored records readable. The first one is `contracts-v0.2.0`, which adds accrued fees.
 
 1. After the pull request with the new contract version is merged, tag the merged `main` commit and push the tag:
 

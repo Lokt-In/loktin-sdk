@@ -88,4 +88,4 @@ GitHub deletes a run's log after 90 days, which is why the hashes are copied ont
 - The reference integration, an app built on the SDK: [github.com/Lokt-In/loktin-sdk-example](https://github.com/Lokt-In/loktin-sdk-example)
 - The live reference app: [demo.loktin.xyz](https://demo.loktin.xyz)
 - The browser test, run by hand through the reference app on 1 November 2026 in Chrome with the Freighter wallet extension: [`docs/smoke-test.md`](https://github.com/Lokt-In/loktin-sdk-example/blob/main/docs/smoke-test.md) in the reference integration's repository. Every hash in it has been checked on testnet.
-- The walkthrough: the link is added here when it's published.
+- The walkthrough, published on Medium: [Add savings options to your Stellar wallet with the LoktIn SDK](https://medium.com/@levaiagbara/add-savings-options-to-your-stellar-wallet-with-the-loktin-sdk-81b8caec2508)
