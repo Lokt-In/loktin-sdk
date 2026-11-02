@@ -52,7 +52,7 @@ The accounts, as recorded in the evidence files:
 
 ## 2. The keeper
 
-A Target Savings goal can have scheduled deposits. They don't happen by themselves: someone has to send a `collect` transaction once each period is due. A **keeper** is the small program that does this. Loktin hosts no keeper: each integrator runs its own, from the [keeper template](../templates/keeper) in this repository.
+A Target Savings goal can have scheduled deposits. They don't happen by themselves: someone has to send a `collect` transaction once each period is due. A **keeper** is the small program that does this. Loktin runs no keeper service for integrators: each integrator runs its own, from the [keeper template](../templates/keeper) in this repository.
 
 The `Evidence keeper` workflow shows the template working on its own. Each run builds the template's image and runs one keeper pass in it, with nothing else: no Loktin server, no database. The pass talks only to the public testnet RPC (`https://soroban-testnet.stellar.org`), the network's own access point, so no Loktin-hosted service is in the path. The keeper's account is `GBGXVAB6ZS7EEZ7VYHSTZBDGGNKKCZJDER5PPI36PR2YY3Y22LPNDEAO`.
 
