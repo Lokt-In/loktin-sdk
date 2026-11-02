@@ -96,7 +96,7 @@ One pass per run; your scheduler starts each run. `examples/` has three schedule
 
 - `crontab`: one line that runs the container every hour, at 23 minutes past.
 - `kubernetes-cronjob.yaml`: a CronJob that never runs two passes at once (`concurrencyPolicy: Forbid`). It mounts the key from a Kubernetes Secret as a file the `node` user can read, and runs as uid 1000, non-root, on a read-only filesystem, with no privilege escalation and all capabilities dropped. The image must be in a registry your cluster can pull from.
-- `github-actions.yml`: a workflow that runs a pass four times an hour, for a repository holding a copy of this folder in `keeper/`. Only its keeper step sees the secret. That step writes the key to a file in a private temporary folder, runs the container with the file, and deletes the folder in every case.
+- `github-actions.yml`: a workflow that runs a pass four times an hour, for a repository holding a copy of this folder in `keeper/`. Only its keeper step sees the secret. That step writes the key to a file in a private temporary folder, runs the container with the file, and deletes the folder in every case. GitHub may delay or drop scheduled runs at busy times, as [its documentation says](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), so this suits a keeper where a late collect is acceptable.
 
 GitHub's docs name the top of the hour as a high-load time for its scheduler, so the examples use other minutes.
 

@@ -25,7 +25,7 @@ function checkRange(units: bigint): bigint {
 }
 
 /**
- * Converts a decimal string, such as "12.5", to base units (K8). USDC on
+ * Converts a decimal string, such as "12.5", to base units. USDC on
  * Stellar has 7 decimals, so "12.5" is 125000000n.
  *
  * Only plain decimal strings are accepted: no numbers, exponents, signs other
@@ -56,7 +56,7 @@ export function toBaseUnits(decimal: string, decimals = 7): bigint {
 }
 
 /**
- * Converts base units to a decimal string (K8), with no trailing zeros:
+ * Converts base units to a decimal string, with no trailing zeros:
  * 125000000n with 7 decimals is "12.5".
  */
 export function fromBaseUnits(units: bigint, decimals = 7): string {

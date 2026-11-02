@@ -113,13 +113,13 @@ export class TargetSavings {
    * sequential: each comes from the owner and its own counter. With
    * `'auto'`, the allowance covers the scheduled deposits of all the owner's
    * open goals and the new one, because an approval replaces the owner's
-   * whole Target Savings allowance (W116). It reads the owner's open goals
+   * whole Target Savings allowance. It reads the owner's open goals
    * and the ledger in parallel before the write. The returned allowance is
    * the combined one. The deadline is rounded down to the second.
    */
   async createGoal(input: CreateGoalInput): Promise<CreatedGoal> {
     const owner = writerOf(this.loktin.config);
-    // The contract's own order (W59).
+    // The contract's own order.
     const target = checkPositive(input.target, 'target', 'InvalidTarget');
     const depositSize = checkPositive(
       input.depositSize,
@@ -201,7 +201,7 @@ export class TargetSavings {
     return { ...created, allowance };
   }
 
-  /** Deposits `amount` from `publicKey` into their goal (P7). */
+  /** Deposits `amount` from `publicKey` into their goal. */
   async deposit(goalId: bigint, amount: bigint): Promise<WriteResult<null>> {
     const owner = writerOf(this.loktin.config);
     const goal_id = checkU64(goalId, 'goalId');
@@ -214,7 +214,7 @@ export class TargetSavings {
   }
 
   /**
-   * Withdraws the whole goal of `publicKey` and closes it (P5, P6, R2).
+   * Withdraws the whole goal of `publicKey` and closes it.
    * The owner receives `toUser`. The penalty and integrator fee accrue to
    * the integrator, and the Loktin fee to Loktin's fee recipient, who each
    * claim them with {@link TargetSavings.claimFees}.
@@ -230,7 +230,7 @@ export class TargetSavings {
     return { ...written, result: toGoalWithdrawal(written.result) };
   }
 
-  /** Collects the deposit for the goal's current period. Any goal may be collected (C3). */
+  /** Collects the deposit for the goal's current period. Any goal may be collected. */
   async collect(goalId: bigint): Promise<WriteResult<null>> {
     writerOf(this.loktin.config);
     const goal_id = checkU64(goalId, 'goalId');
@@ -242,7 +242,7 @@ export class TargetSavings {
    * the owner's open goals, `goalId` among them: each worked out with
    * {@link scheduledAllowance}, then combined with
    * {@link combineAllowances}. An approval replaces the owner's whole
-   * Target Savings allowance, which covers all their goals (W57, W116).
+   * Target Savings allowance, which covers all their goals.
    * Reads the goals from the chain, never from the adapter.
    */
   async renewAllowance(goalId: bigint): Promise<RenewedAllowance> {
@@ -368,8 +368,8 @@ export class TargetSavings {
   }
 
   /**
-   * Pays out every fee accrued to `publicKey` and returns the amount
-   * (W63). The call acts for `publicKey`, so it needs only the configured
+   * Pays out every fee accrued to `publicKey` and returns the amount.
+   * The call acts for `publicKey`, so it needs only the configured
    * signer. An integrator claims by creating the SDK with its own
    * `publicKey` and signer, and Loktin's fee recipient claims the same way.
    * With nothing accrued, the contract refuses it with `NothingToClaim`.
@@ -383,7 +383,7 @@ export class TargetSavings {
   }
 
   /**
-   * Returns the fees accrued to `recipient` and not yet claimed (W63).
+   * Returns the fees accrued to `recipient` and not yet claimed.
    * `recipient` defaults to the module's integrator.
    */
   async accruedFees(recipient?: string): Promise<bigint> {

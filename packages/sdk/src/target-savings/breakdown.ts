@@ -40,7 +40,7 @@ function bpsOf(amount: bigint, bps: number): bigint {
 
 /**
  * Works out how an early withdrawal of the whole target would split, so the
- * app can show it before the user signs (R2, R4). Each part is taken from the
+ * app can show it before the user signs. Each part is taken from the
  * principal and rounded down, as the contract does. No network call.
  */
 export function creationBreakdown(

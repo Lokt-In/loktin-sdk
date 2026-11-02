@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## @loktin/sdk 1.0.0
+
+The first stable release, for Stellar testnet only. From this version the API changes only in a new major version.
+
+- The peer dependency is now `@stellar/stellar-sdk` `^17.4.0`, because Protocol 30 needs 17.3.0 or later.
+- `requestTimeoutMs` now has an upper limit of 2,147,483,647.
+- When the RPC refuses the start of the keeper's event scan, the scan now starts again from the range stated in the refusal.
+
 ## @loktin/sdk 0.5.0
 
 - The keeper reads the goals it found in batches, up to 200 goals in one RPC call, instead of one call per goal.

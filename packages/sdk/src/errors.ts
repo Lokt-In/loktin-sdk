@@ -4,7 +4,7 @@ import type { DiagnosticEvent } from '@stellar/stellar-sdk/xdr';
 import type { ContractIds } from './networks.js';
 import { type LoktinContract, specs } from './specs.js';
 
-/** The stable code of every error the SDK throws (K7). */
+/** The stable code of every error the SDK throws. */
 export type LoktinErrorCode =
   | 'INVALID_INPUT'
   | 'CONTRACT_ERROR'

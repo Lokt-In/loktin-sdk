@@ -29,4 +29,4 @@ This is an estimate, not a measurement. The sizing script never runs on testnet.
 - **From the testnet smoke run.** Its 50 writes took 4,834 ms at the median and 8,787 ms at the 95th percentile (`evidence/testnet-smoke.json`). One channel sending one collect at a time would then manage about 3,600 / 8.8 = 410 to 3,600 / 4.8 = 745 collects an hour, so about 410 to 720 once the ceiling applies.
 - **More channels.** Each channel adds about as much again, while testnet's ledgers have room for the extra transactions.
 
-The evidence keeper's real collect times on testnet will be added here later.
+On testnet, the evidence keeper landed one collect per ledger, 5 seconds apart, which is the ceiling above, and each pass of two collects took 9 to 12 seconds, scan included. That is from 8 collects in 4 passes, so it is a small sample.

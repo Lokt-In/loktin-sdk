@@ -32,11 +32,11 @@ import {
   toWithdrawal,
 } from './types.js';
 
-/** Lowest skim percentage, 1% (P12). */
+/** Lowest skim percentage, 1%. */
 const MIN_PERCENT_BPS = 100;
-/** Highest skim percentage, 50% (P12). */
+/** Highest skim percentage, 50%. */
 const MAX_PERCENT_BPS = 5_000;
-/** Withdrawal days run from 1 to 28 (P16). */
+/** Withdrawal days run from 1 to 28. */
 const MIN_DAY = 1;
 const MAX_DAY = 28;
 
@@ -60,7 +60,7 @@ export interface EnrollmentView extends Enrollment {
   readonly effectiveWithdrawalDay: number;
 }
 
-// Checks the settings in the contract's order (W59). The integrator and its
+// Checks the settings in the contract's order. The integrator and its
 // fee were checked when the module was created.
 function checkSettings(input: EnrollInput): Readonly<Record<string, unknown>> {
   if (typeof input !== 'object' || (input as unknown) === null) {
@@ -137,7 +137,7 @@ export class SpendSave {
     return this.loktin.config.readAdapter?.spendSave;
   }
 
-  /** Enrols `publicKey` with the integrator (P12, P13, P16, S9). */
+  /** Enrols `publicKey` with the integrator. */
   async enroll(input: EnrollInput): Promise<WriteResult<null>> {
     const user = writerOf(this.loktin.config);
     const settings = checkSettings(input);
@@ -151,7 +151,7 @@ export class SpendSave {
 
   /**
    * Replaces the skim settings, cap and destination at once. A new withdrawal
-   * day takes effect from next month (P16, S9). Fee rates never change.
+   * day takes effect from next month. Fee rates never change.
    */
   async updateSettings(input: EnrollInput): Promise<WriteResult<null>> {
     const user = writerOf(this.loktin.config);
@@ -165,7 +165,7 @@ export class SpendSave {
 
   /**
    * Pays `amount` from `publicKey` to `to`, an account (G), muxed account (M)
-   * or contract (C) address, and saves the skim in the same call (P11, P14).
+   * or contract (C) address, and saves the skim in the same call.
    */
   async payAndSave(to: string, amount: bigint): Promise<WriteResult<Saving>> {
     const user = writerOf(this.loktin.config);
@@ -196,7 +196,7 @@ export class SpendSave {
     return { ...written, result: toSaving(written.result) };
   }
 
-  /** Saves the skim on a spend `publicKey` made by other means (P11). */
+  /** Saves the skim on a spend `publicKey` made by other means. */
   async saveForSpend(spent: bigint): Promise<WriteResult<Saving>> {
     const user = writerOf(this.loktin.config);
     checkPositive(spent, 'spent', 'InvalidAmount');
@@ -210,7 +210,7 @@ export class SpendSave {
 
   /**
    * Withdraws `amount` from the balance. The chain refuses it outside the
-   * withdrawal window (P16, S9, R2). The user receives `toUser`. The
+   * withdrawal window. The user receives `toUser`. The
    * integrator fee accrues to the integrator, and the Loktin fee to
    * Loktin's fee recipient, who each claim them with
    * {@link SpendSave.claimFees}.
@@ -226,7 +226,7 @@ export class SpendSave {
     return { ...written, result: toWithdrawal(written.result) };
   }
 
-  /** Closes the enrolment, whose balance must be zero (S9). */
+  /** Closes the enrolment, whose balance must be zero. */
   async close(): Promise<WriteResult<null>> {
     const user = writerOf(this.loktin.config);
     return this.loktin.write('spend-save', 'close', {
@@ -315,8 +315,8 @@ export class SpendSave {
   }
 
   /**
-   * Pays out every fee accrued to `publicKey` and returns the amount
-   * (W63). The call acts for `publicKey`, so it needs only the configured
+   * Pays out every fee accrued to `publicKey` and returns the amount.
+   * The call acts for `publicKey`, so it needs only the configured
    * signer. An integrator claims by creating the SDK with its own
    * `publicKey` and signer, and Loktin's fee recipient claims the same way.
    * With nothing accrued, the contract refuses it with `NothingToClaim`.
@@ -328,7 +328,7 @@ export class SpendSave {
   }
 
   /**
-   * Returns the fees accrued to `recipient` and not yet claimed (W63).
+   * Returns the fees accrued to `recipient` and not yet claimed.
    * `recipient` defaults to the module's integrator.
    */
   async accruedFees(recipient?: string): Promise<bigint> {

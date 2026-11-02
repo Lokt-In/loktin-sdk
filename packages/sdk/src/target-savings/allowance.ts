@@ -7,7 +7,7 @@ import {
   secondsOf,
 } from '../validate.js';
 
-/** The ledger close time the SDK assumes, measured on testnet (W57). */
+/** The ledger close time the SDK assumes, measured on testnet. */
 export const SECONDS_PER_LEDGER = 5;
 /** Margin added after the deadline's ledger: one day of ledgers. */
 export const EXPIRY_MARGIN_LEDGERS = 17_280;
@@ -52,7 +52,7 @@ export interface ScheduledAllowance {
 
 /**
  * Works out the allowance that covers a goal's scheduled deposits until the
- * allowance expires (W57). No network call.
+ * allowance expires. No network call.
  *
  * The expiry is the deadline's ledger, estimated at 5 seconds per ledger,
  * plus one day of ledgers, capped at the latest ledger the network allows.
@@ -125,7 +125,7 @@ export function scheduledAllowance(
 }
 
 /**
- * Combines the allowances of several goals into one (W116). An owner has a
+ * Combines the allowances of several goals into one. An owner has a
  * single token allowance for Target Savings, and each approval replaces it,
  * so one approval must cover all of the owner's goals. The amounts and
  * periods are summed, the expiry is the latest one (with its expected

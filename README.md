@@ -7,6 +7,6 @@ A headless TypeScript package that lets any Stellar wallet or remittance team ad
 
 It also includes integrator-owned keeper tooling: a keeper client in the SDK and a deployable keeper template that an integrating team runs on its own infrastructure.
 
-Status: in development, testnet only.
+Status: `1.0.0`, the first stable release, on Stellar testnet only. The evidence for the release is in [docs/evidence.md](docs/evidence.md).
 
 Shared error codes: [docs/errors.md](docs/errors.md)

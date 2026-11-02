@@ -1,7 +1,7 @@
 import { InvalidInputError } from '../errors.js';
 import { MAX_PENALTY_BPS, checkBps, dateOf } from '../validate.js';
 
-/** What happens when the owner withdraws before the target or deadline (P4). */
+/** What happens when the owner withdraws before the target or deadline. */
 export type WithdrawalRule =
   | {
       readonly kind: 'penalty';
@@ -47,7 +47,7 @@ export interface GoalWithdrawal {
 }
 
 /**
- * Target Savings reads served from somewhere other than the chain (K9). Each
+ * Target Savings reads served from somewhere other than the chain. Each
  * method is optional; a read without one goes to the chain.
  */
 export interface TargetSavingsReadAdapter {
