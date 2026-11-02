@@ -141,7 +141,6 @@ function event(
     ledgerClosedAt: '2026-10-28T16:49:00Z',
     transactionIndex: 1,
     operationIndex: 0,
-    inSuccessfulContractCall: true,
     txHash: 'ab'.repeat(32),
     topic: [
       ScVal.scvSymbol(name),
@@ -353,11 +352,29 @@ describe('scanGoals', () => {
     expect(START_MARGIN_LEDGERS).toBe(60);
   });
 
-  it('starts again from a fresh oldest ledger when the RPC refuses the start', async () => {
+  it('starts again from the range in the refusal when the RPC refuses the start', async () => {
     server.oldestLedgers.push(879_040, 879_050);
     server.eventErrors.push({
       code: -32600,
       message: 'startLedger must be within the ledger range: 879101 - 1000000',
+    });
+    const scan = await scanGoals(reader(), { integrators: [INTEGRATOR_A] });
+    expect(ids(scan.goals)).toEqual([1n]);
+    expect(scan.fromLedger).toBe(879_161);
+    expect(
+      server.calls
+        .filter((call) => call.method === 'getEvents')
+        .slice(0, 2)
+        .map((call) => call.startLedger),
+    ).toEqual([879_100, 879_161]);
+    expect(server.methods().filter((m) => m === 'getHealth')).toHaveLength(1);
+  });
+
+  it('starts again from a fresh oldest ledger when the refusal has no range', async () => {
+    server.oldestLedgers.push(879_040, 879_050);
+    server.eventErrors.push({
+      code: -32600,
+      message: 'startLedger must be within the ledger range',
     });
     const scan = await scanGoals(reader(), { integrators: [INTEGRATOR_A] });
     expect(ids(scan.goals)).toEqual([1n]);
@@ -369,6 +386,42 @@ describe('scanGoals', () => {
         .map((call) => call.startLedger),
     ).toEqual([879_100, 879_110]);
     expect(server.methods().filter((m) => m === 'getHealth')).toHaveLength(2);
+  });
+
+  it('starts again from the oldest ledger when the refused range is narrower than the margin', async () => {
+    server.oldestLedgers.push(879_040);
+    server.eventErrors.push({
+      code: -32600,
+      message: 'startLedger must be within the ledger range: 879101 - 879130',
+    });
+    const scan = await scanGoals(reader(), { integrators: [INTEGRATOR_A] });
+    expect(ids(scan.goals)).toEqual([1n]);
+    expect(scan.fromLedger).toBe(879_101);
+    expect(server.methods().filter((m) => m === 'getHealth')).toHaveLength(1);
+  });
+
+  it('passes a second out-of-range refusal on as NETWORK', async () => {
+    server.oldestLedgers.push(879_040);
+    server.eventErrors.push(
+      {
+        code: -32600,
+        message:
+          'startLedger must be within the ledger range: 879101 - 1000000',
+      },
+      {
+        code: -32600,
+        message:
+          'startLedger must be within the ledger range: 879170 - 1000010',
+      },
+    );
+    await expect(
+      scanGoals(reader(), { integrators: [INTEGRATOR_A] }),
+    ).rejects.toMatchObject({
+      code: 'NETWORK',
+      message:
+        'the RPC refused the event scan: startLedger must be within the ledger range: 879170 - 1000010',
+    });
+    expect(server.methods().filter((m) => m === 'getEvents')).toHaveLength(2);
   });
 
   it('passes any other RPC refusal on as NETWORK, without retrying', async () => {

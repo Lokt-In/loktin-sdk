@@ -4,9 +4,9 @@ How many goals one keeper pass collects, with 1, 2 and 4 channel accounts (E3, W
 
 ## How it was measured
 
-`npm run sizing:keeper` starts the same private local network as the end-to-end tests (stellar/quickstart with testnet limits, protocol 29) and refuses any other network. It sets up 100 owners with 20 goals each, 2,000 goals in all, with a 60-second cadence and a 1 TEST deposit, and enough balance and allowance for every collect. Once the goals are due, it runs three sweeps over the same goals, each in a later period: one pass with 1 channel, then 2, then 4. Each sweep is one `runPass` call, scan included. Sends answered TRY_AGAIN_LATER are counted by the RPC connection the script passes in, because the SDK resends them itself and does not report them.
+`npm run sizing:keeper` starts the same private local network as the end-to-end tests (stellar/quickstart with testnet limits, protocol 30) and refuses any other network. It sets up 100 owners with 20 goals each, 2,000 goals in all, with a 60-second cadence and a 1 TEST deposit, and enough balance and allowance for every collect. Once the goals are due, it runs three sweeps over the same goals, each in a later period: one pass with 1 channel, then 2, then 4. Each sweep is one `runPass` call, scan included. Sends answered TRY_AGAIN_LATER are counted by the RPC connection the script passes in, because the SDK resends them itself and does not report them.
 
-The run on 29 October 2026 took 5,716 seconds (about 95 minutes), 126 of them for the goals, on an 11th Gen Intel Core i7-1185G7 (8 threads, 15 GiB) under WSL2 with Node 24.22.1. The local network closed one ledger a second.
+The run on 29 October 2026, on protocol 29, took 5,716 seconds (about 95 minutes), 126 of them for the goals, on an 11th Gen Intel Core i7-1185G7 (8 threads, 15 GiB) under WSL2 with Node 24.22.1. The local network closed one ledger a second.
 
 To rerun it quickly with fewer goals, run `npm run sizing:keeper -- --goals 200`. A smaller run prints its table and leaves the JSON file alone.
 

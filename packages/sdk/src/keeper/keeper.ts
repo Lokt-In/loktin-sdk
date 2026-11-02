@@ -94,10 +94,7 @@ function serverOf(loktin: Loktin): Server {
   if (server !== undefined) {
     return server;
   }
-  const built = new Server(rpcUrl, { allowHttp });
-  // As in the core: stellar-sdk honours this default on every request (K6).
-  built.httpClient.defaults.timeout = requestTimeoutMs;
-  return built;
+  return new Server(rpcUrl, { allowHttp, timeout: requestTimeoutMs });
 }
 
 function isAddress(value: unknown): boolean {
@@ -178,6 +175,23 @@ function isOutOfRange(error: unknown): boolean {
 }
 
 /**
+ * Where to start again after an out-of-range refusal, from the range it
+ * states ("...ledger range: <oldest> - <latest>"): {@link START_MARGIN_LEDGERS}
+ * after the oldest ledger, or the oldest ledger when that would pass the
+ * latest. Undefined when the message has no range to read.
+ */
+function startFromRefusal(error: unknown): number | undefined {
+  const range = /ledger range: (\d+) - (\d+)/.exec(refusalMessage(error) ?? '');
+  if (range === null) {
+    return undefined;
+  }
+  const oldest = Number(range[1]);
+  const latest = Number(range[2]);
+  const start = oldest + START_MARGIN_LEDGERS;
+  return start > latest ? oldest : start;
+}
+
+/**
  * The ledger key of an open goal: Target Savings keeps it in persistent
  * storage under `DataKey::Goal(id)`, which encodes as the vector
  * `[Symbol("Goal"), U64(id)]`.
@@ -250,7 +264,10 @@ async function readEntries(
  * goals' current data with `getLedgerEntries`, at most
  * {@link LEDGER_KEYS_PER_CALL} per call (W113). Once the RPC's window is
  * full, the scan starts {@link START_MARGIN_LEDGERS} after its oldest ledger
- * ({@link scanStart}), and every RPC call is retried on network errors.
+ * ({@link scanStart}), and every RPC call is retried on network errors. If
+ * the RPC refuses that start as out of range, the scan starts once more from
+ * the range the refusal states, and asks `getHealth` again only when the
+ * message has no range to read; a second refusal is passed on as NETWORK.
  */
 export async function scanGoals(
   loktin: Loktin,
@@ -301,8 +318,9 @@ async function scan(loktin: Loktin, options: ScanOptions): Promise<ScanResult> {
     if (!isOutOfRange(error)) {
       throw error;
     }
-    // The window moved past the start: once more from a fresh oldest ledger.
-    startLedger = scanStart(await health());
+    // The window moved past the start: once more, from the range the
+    // refusal states, or from a fresh oldest ledger if it states none.
+    startLedger = startFromRefusal(error) ?? scanStart(await health());
     pages += 1;
     page = await firstPage(startLedger);
   }

@@ -58,9 +58,9 @@ export interface LoktinOptions {
   readonly server?: Server;
   /**
    * The time limit of every RPC request, in milliseconds: a positive whole
-   * number, 30,000 by default. A request that runs out of time is handled
-   * like any other failed request (K6). It applies to the server the SDK
-   * builds, not to one passed as `server`.
+   * number up to 2,147,483,647, 30,000 by default. A request that runs out
+   * of time is handled like any other failed request (K6). It applies to the
+   * server the SDK builds, not to one passed as `server`.
    */
   readonly requestTimeoutMs?: number;
 }
@@ -114,13 +114,21 @@ function checkRpcUrl(value: unknown): { rpcUrl: string; allowHttp: boolean } {
 /** The default time limit of every RPC request (K6). stellar-rpc caps a request at 25 s. */
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
+/** The highest time limit stellar-sdk's RPC server accepts. */
+const MAX_REQUEST_TIMEOUT_MS = 2_147_483_647;
+
 function checkTimeout(value: unknown): number {
   if (value === undefined) {
     return DEFAULT_REQUEST_TIMEOUT_MS;
   }
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isSafeInteger(value) ||
+    value <= 0 ||
+    value > MAX_REQUEST_TIMEOUT_MS
+  ) {
     throw new InvalidInputError(
-      'requestTimeoutMs must be a positive whole number of milliseconds',
+      `requestTimeoutMs must be a positive whole number of milliseconds, up to ${String(MAX_REQUEST_TIMEOUT_MS)}`,
     );
   }
   return value;
