@@ -14,14 +14,14 @@ import {
   TESTNET,
 } from './networks.js';
 
-/** The wallet that signs writes (K3), in the stellar-sdk and SEP-43 shapes. */
+/** The wallet that signs writes, in the stellar-sdk and SEP-43 shapes. */
 export interface LoktinSigner {
   readonly signTransaction: SignTransaction;
   readonly signAuthEntry?: SignAuthEntry;
 }
 
 /**
- * Serves reads from somewhere other than the chain, such as an indexer (K9).
+ * Serves reads from somewhere other than the chain, such as an indexer.
  * Each module read has an optional method here. A read whose method is
  * present uses it; any other read goes to the chain. Writes never use it.
  */
@@ -30,7 +30,7 @@ export interface ReadAdapter {
   readonly spendSave?: SpendSaveReadAdapter;
 }
 
-/** The integrator a module works for, and its fee (R4). */
+/** The integrator a module works for, and its fee. */
 export interface IntegratorOptions {
   /** The integrator's address (G or C), which receives its fees and penalties. */
   readonly integrator: string;
@@ -38,9 +38,9 @@ export interface IntegratorOptions {
   readonly integratorFeeBps: number;
 }
 
-/** Options for {@link createLoktin} (K10). */
+/** Options for {@link createLoktin}. */
 export interface LoktinOptions {
-  /** `"testnet"` for Loktin's testnet deployment, or the settings of your own deployment (B7). */
+  /** `"testnet"` for Loktin's testnet deployment, or the settings of your own deployment. */
   readonly network: 'testnet' | NetworkSettings;
   /** Overrides the network's RPC URL. */
   readonly rpcUrl?: string;
@@ -59,7 +59,7 @@ export interface LoktinOptions {
   /**
    * The time limit of every RPC request, in milliseconds: a positive whole
    * number up to 2,147,483,647, 30,000 by default. A request that runs out
-   * of time is handled like any other failed request (K6). It applies to the
+   * of time is handled like any other failed request. It applies to the
    * server the SDK builds, not to one passed as `server`.
    */
   readonly requestTimeoutMs?: number;
@@ -111,7 +111,7 @@ function checkRpcUrl(value: unknown): { rpcUrl: string; allowHttp: boolean } {
   );
 }
 
-/** The default time limit of every RPC request (K6). stellar-rpc caps a request at 25 s. */
+/** The default time limit of every RPC request. stellar-rpc caps a request at 25 s. */
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 /** The highest time limit stellar-sdk's RPC server accepts. */

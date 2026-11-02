@@ -37,7 +37,7 @@ export type ContractArgs = Readonly<Record<string, unknown>>;
 /** A contract the SDK calls: one of the Loktin contracts, or the configured token. */
 export type CallTarget = LoktinContract | 'token';
 
-/** Network limits read from the ledger, for allowance expiries (W57). */
+/** Network limits read from the ledger, for allowance expiries. */
 export interface LedgerInfo {
   /** The latest ledger the RPC knows. */
   readonly latestLedger: number;
@@ -57,29 +57,29 @@ export interface WriteResult<T> {
 export interface Loktin {
   readonly config: ResolvedConfig;
   /**
-   * Simulates a read-only call (G8, K9). It costs one RPC call, retried on
+   * Simulates a read-only call. It costs one RPC call, retried on
    * network errors only. The first token call also looks up the token
-   * contract, once per instance (W58).
+   * contract, once per instance.
    */
   read<T = unknown>(
     contract: CallTarget,
     method: string,
     args?: ContractArgs,
   ): Promise<T>;
-  /** Builds, simulates, signs, sends and confirms a call (K5, K6). */
+  /** Builds, simulates, signs, sends and confirms a call. */
   write<T = unknown>(
     contract: CallTarget,
     method: string,
     args?: ContractArgs,
   ): Promise<WriteResult<T>>;
-  /** Reads the latest ledger and the longest entry time to live, in one RPC call (W57). */
+  /** Reads the latest ledger and the longest entry time to live, in one RPC call. */
   ledgerInfo(): Promise<LedgerInfo>;
 }
 
-// K9, K6: a read, and each step of a write before signing, is retried up to
+// A read, and each step of a write before signing, is retried up to
 // 3 times, on network errors only.
 const READ_RETRY_DELAYS_MS = [500, 1000, 2000];
-// K6: TRY_AGAIN_LATER resends the same signed transaction up to 3 times.
+// TRY_AGAIN_LATER resends the same signed transaction up to 3 times.
 const RESEND_DELAYS_MS = [1000, 2000, 4000];
 const POLL_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 1000;
@@ -95,7 +95,7 @@ const WALLET_ERRORS: readonly [new (message: string) => Error, number][] = [
 // asking again cannot help, so it is never retried.
 class NetworkMismatchError extends NetworkError {}
 
-// K6, K9: a transport failure is worth another try; a mismatch is not.
+// A transport failure is worth another try; a mismatch is not.
 function retryable(error: unknown): boolean {
   return (
     error instanceof NetworkError && !(error instanceof NetworkMismatchError)
@@ -198,11 +198,11 @@ class LoktinInstance implements Loktin {
     // The token's lookup is retried like the steps below.
     const spec = await this.retrying(async () => this.specFor(contract));
     checkCall(spec, method, args);
-    // K6 (W77): nothing is signed or sent before these steps, so each is
+    // Nothing is signed or sent before these steps, so each is
     // retried on network errors as reads are.
     await this.retrying(() => this.checkNetwork());
 
-    // K5: built with the user's address, so the account is looked up.
+    // Built with the user's address, so the account is looked up.
     const client = this.client(this.writeClients, contract, spec, true);
     const tx = await this.retrying(() =>
       this.simulate(client, spec, method, args),
@@ -253,8 +253,8 @@ class LoktinInstance implements Loktin {
     });
   }
 
-  // K9: retried up to 3 times, on network errors only. Used by reads and
-  // by the steps of a write before signing (K6).
+  // Retried up to 3 times, on network errors only. Used by reads and
+  // by the steps of a write before signing.
   private async retrying<T>(call: () => Promise<T>): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
@@ -270,7 +270,7 @@ class LoktinInstance implements Loktin {
   }
 
   // The Loktin specs are bundled. The token's comes from one lookup per
-  // instance, which recognises the Stellar Asset Contract (W58).
+  // instance, which recognises the Stellar Asset Contract.
   private specFor(contract: CallTarget): Spec | Promise<Spec> {
     if (contract !== 'token') {
       return specs[contract];
@@ -322,7 +322,7 @@ class LoktinInstance implements Loktin {
         rpcUrl,
         allowHttp,
         server: this.server,
-        // A read has no publicKey, so it makes no account lookup (G8).
+        // A read has no publicKey, so it makes no account lookup.
         ...(forWrite && publicKey !== undefined ? { publicKey } : {}),
         ...(forWrite && signer?.signAuthEntry !== undefined
           ? { signAuthEntry: signer.signAuthEntry }
@@ -349,7 +349,7 @@ class LoktinInstance implements Loktin {
     return decode(spec, method, simulation.result?.retval);
   }
 
-  // Builds the call and simulates it, with restore left off (K5).
+  // Builds the call and simulates it, with restore left off.
   private async simulate(
     client: Client,
     spec: Spec,
@@ -397,7 +397,7 @@ class LoktinInstance implements Loktin {
     return tx;
   }
 
-  // K5: once per instance, confirm the RPC serves the configured network.
+  // Once per instance, confirm the RPC serves the configured network.
   private checkNetwork(): Promise<void> {
     this.networkCheck ??= (async () => {
       let passphrase: string;
@@ -463,7 +463,7 @@ class LoktinInstance implements Loktin {
     }
   }
 
-  // K6: sends the signed transaction, and resends the same one on TRY_AGAIN_LATER.
+  // Sends the signed transaction, and resends the same one on TRY_AGAIN_LATER.
   private async send(signed: Transaction): Promise<string> {
     const localHash = hexOf(signed.hash());
     for (let attempt = 0; ; attempt++) {
@@ -498,7 +498,7 @@ class LoktinInstance implements Loktin {
     }
   }
 
-  // K6: polls for up to 60 s, and never builds or signs a new transaction.
+  // Polls for up to 60 s, and never builds or signs a new transaction.
   private async confirm<T>(
     signed: Transaction,
     hash: string,
@@ -552,7 +552,7 @@ function checkCall(spec: Spec, method: string, args: ContractArgs): void {
   }
 }
 
-/** Creates a configured SDK instance (K10). Options are checked before any network call. */
+/** Creates a configured SDK instance. Options are checked before any network call. */
 export function createLoktin(options: LoktinOptions): Loktin {
   return new LoktinInstance(resolveConfig(options));
 }

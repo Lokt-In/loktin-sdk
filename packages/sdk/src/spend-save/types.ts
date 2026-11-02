@@ -1,7 +1,7 @@
 import type { TimeWindow } from '../time.js';
 import { dateOf } from '../validate.js';
 
-/** How a skim is worked out from a spend (P12). At least one part is set. */
+/** How a skim is worked out from a spend. At least one part is set. */
 export interface SkimSettings {
   /** A percentage of the spend, in basis points, 100 to 5,000. */
   readonly percentBps?: number | undefined;
@@ -9,12 +9,12 @@ export interface SkimSettings {
   readonly roundUpUnit?: bigint | undefined;
 }
 
-/** Where skims go (P15). */
+/** Where skims go. */
 export type Destination =
   | { readonly kind: 'balance' }
   | { readonly kind: 'goal'; readonly goalId: bigint };
 
-/** A change of withdrawal day waiting for its month (P16). */
+/** A change of withdrawal day waiting for its month. */
 export interface PendingDay {
   readonly day: number;
   /** The month index, `year × 12 + (month − 1)` in UTC, it takes effect from. */
@@ -46,7 +46,7 @@ export interface Enrollment {
   readonly totalSaved: bigint;
 }
 
-/** How a spend would be skimmed, before the wallet is checked (P12, P13). */
+/** How a spend would be skimmed, before the wallet is checked. */
 export interface SkimPreview {
   readonly spent: bigint;
   readonly percentPart: bigint;
@@ -59,7 +59,7 @@ export interface SkimPreview {
   readonly capped: bigint;
 }
 
-/** What one skim saved, and where it went (P14, S10). */
+/** What one skim saved, and where it went. */
 export interface Saving {
   /** The skim before trimming. */
   readonly skim: bigint;
@@ -81,7 +81,7 @@ export interface SpendSaveWithdrawal {
 }
 
 /**
- * Spend & Save reads served from somewhere other than the chain (K9). Each
+ * Spend & Save reads served from somewhere other than the chain. Each
  * method is optional; a read without one goes to the chain.
  */
 export interface SpendSaveReadAdapter {
@@ -237,7 +237,7 @@ export function monthIndex(date: Date): number {
 
 /**
  * The withdrawal day that applies at `now`, by the contract's rule: a pending
- * change applies once the month index reaches its `fromMonth` (P16). For
+ * change applies once the month index reaches its `fromMonth`. For
  * display only. It uses the device clock in UTC, and at the edge of a month
  * the chain's ledger time decides.
  */

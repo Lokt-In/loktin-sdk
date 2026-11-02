@@ -27,7 +27,7 @@ export interface FormattedWindow {
 
 /**
  * Formats a window, such as a Spend & Save withdrawal window, in a time zone
- * with `Intl.DateTimeFormat` (K11). It uses the runtime's time zone data, and
+ * with `Intl.DateTimeFormat`. It uses the runtime's time zone data, and
  * the SDK bundles none.
  */
 export function windowInTimeZone(

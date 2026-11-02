@@ -1,3 +1,10 @@
+/**
+ * The main entry: `createLoktin` with its options and errors, the testnet
+ * settings, and the helpers for amounts and withdrawal windows. The contract
+ * modules and the keeper have their own entries.
+ *
+ * @module core
+ */
 export { fromBaseUnits, toBaseUnits } from './amounts.js';
 export type {
   IntegratorOptions,

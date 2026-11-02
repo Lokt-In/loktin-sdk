@@ -27,7 +27,7 @@ import type { Loktin } from '../loktin.js';
 import { specs } from '../specs.js';
 import { type Goal, type RawGoal, toGoal } from '../target-savings/types.js';
 
-/** Which goals a keeper serves (E2). */
+/** Which goals a keeper serves. */
 export interface ScanOptions {
   /** Integrator addresses whose goals are served, or `'all'`. */
   readonly integrators: readonly string[] | 'all';
@@ -39,7 +39,7 @@ export interface ScanOptions {
   readonly owners?: readonly string[];
 }
 
-/** What a scan found (E1). */
+/** What a scan found. */
 export interface ScanResult {
   /** The goals served, with their current data. */
   readonly goals: readonly Goal[];
@@ -74,10 +74,10 @@ export function scanStart(health: Api.GetHealthResponse): number {
     ? health.oldestLedger + START_MARGIN_LEDGERS
     : health.oldestLedger;
 }
-/** The SDK's read retries (K6): 3 more tries, on network errors only. */
+/** The SDK's read retries: 3 more tries, on network errors only. */
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 
-/** Keys per `getLedgerEntries` call: the RPC refuses more than 200 (W113). */
+/** Keys per `getLedgerEntries` call: the RPC refuses more than 200. */
 export const LEDGER_KEYS_PER_CALL = 200;
 
 /** Events per `getEvents` call. */
@@ -256,13 +256,13 @@ async function readEntries(
 }
 
 /**
- * Finds the goals a keeper serves (E1, W96). It pages the `goal_created`
+ * Finds the goals a keeper serves. It pages the `goal_created`
  * and `goal_closed` events of Target Savings across the RPC's retention
  * window, following the cursor until it stops changing (most pages are
  * empty), keeps created goals whose integrator matches and that have not
  * closed, adds the open goals of the given owners, and reads the other
  * goals' current data with `getLedgerEntries`, at most
- * {@link LEDGER_KEYS_PER_CALL} per call (W113). Once the RPC's window is
+ * {@link LEDGER_KEYS_PER_CALL} per call. Once the RPC's window is
  * full, the scan starts {@link START_MARGIN_LEDGERS} after its oldest ledger
  * ({@link scanStart}), and every RPC call is retried on network errors. If
  * the RPC refuses that start as out of range, the scan starts once more from
@@ -390,7 +390,7 @@ async function scan(loktin: Loktin, options: ScanOptions): Promise<ScanResult> {
 }
 
 /**
- * Whether a goal can be collected at `now`, from its stored data (W97): a
+ * Whether a goal can be collected at `now`, from its stored data: a
  * period has started and is not the last one collected, the deadline has
  * not passed, and the target is not reached.
  */
@@ -410,7 +410,7 @@ export function isDue(goal: Goal, now: Date): boolean {
   );
 }
 
-/** A transaction refused because its fee is above the keeper's ceiling (E10). */
+/** A transaction refused because its fee is above the keeper's ceiling. */
 export class FeeAboveCeilingError extends Error {
   override readonly name = 'FeeAboveCeilingError';
   readonly fee: bigint;
@@ -427,7 +427,7 @@ export class FeeAboveCeilingError extends Error {
 
 /**
  * Wraps a signer so it reads each transaction's total fee before signing,
- * and refuses one above `maxFeeStroops` (E10, W98). The SDK simulates before
+ * and refuses one above `maxFeeStroops`. The SDK simulates before
  * it signs, so the fee read is the final one.
  */
 export function feeCeilingSigner(
@@ -444,7 +444,7 @@ export function feeCeilingSigner(
   };
 }
 
-/** The contract errors a keeper logs as skips, by name (E7). */
+/** The contract errors a keeper logs as skips, by name. */
 export const SKIPPED_ERRORS: ReadonlySet<string> = new Set([
   'NotDue',
   'AlreadyCollected',
@@ -469,7 +469,7 @@ export function skipReason(error: unknown): string | undefined {
   return undefined;
 }
 
-/** What a pass did with one goal (E8). */
+/** What a pass did with one goal. */
 export type GoalResult =
   | {
       readonly goalId: bigint;
@@ -485,15 +485,15 @@ export type GoalResult =
     }
   | { readonly goalId: bigint; readonly action: 'not-due' };
 
-/** One keeper pass (E5). */
+/** One keeper pass. */
 export interface PassResult {
   readonly scan: ScanResult;
   readonly results: readonly GoalResult[];
-  /** Set when an unexpected error stopped the pass (E7). */
+  /** Set when an unexpected error stopped the pass. */
   readonly failure?: {
     /** The goal being collected, absent for a failure before any collect. */
     readonly goalId?: bigint;
-    /** The public key of the channel that failed (W112). */
+    /** The public key of the channel that failed. */
     readonly channel?: string;
     readonly code: string;
     readonly message: string;
@@ -577,7 +577,7 @@ function failureOf(goalId: bigint, channel: string, error: unknown): Failure {
 }
 
 /**
- * One keeper pass (E1, E5, W97, W112): scans the goals, then collects each
+ * One keeper pass: scans the goals, then collects each
  * due goal with the configured signer. The expected refusals and a fee
  * above the ceiling are skips; any other error stops the pass.
  *

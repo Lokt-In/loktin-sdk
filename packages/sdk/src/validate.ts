@@ -1,5 +1,5 @@
 // Input checks shared by the modules. Each throws INVALID_INPUT before any
-// network call (W59).
+// network call.
 import { StrKey } from '@stellar/stellar-sdk/base';
 import type { IntegratorOptions, ResolvedConfig } from './config.js';
 import { InvalidInputError } from './errors.js';
@@ -7,11 +7,11 @@ import { InvalidInputError } from './errors.js';
 const U32_MAX = 0xffff_ffff;
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
 
-/** Highest Loktin fee rate, 1% (R4). */
+/** Highest Loktin fee rate, 1%. */
 export const MAX_LOKTIN_FEE_BPS = 100;
-/** Highest integrator fee rate, 1% (R4). */
+/** Highest integrator fee rate, 1%. */
 export const MAX_INTEGRATOR_FEE_BPS = 100;
-/** Highest early-withdrawal penalty rate, 10% (P4). */
+/** Highest early-withdrawal penalty rate, 10%. */
 export const MAX_PENALTY_BPS = 1_000;
 
 export function checkBigInt(value: unknown, label: string): bigint {
