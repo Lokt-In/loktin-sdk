@@ -12,8 +12,8 @@
 # Needs: docker, stellar (CLI 28.1.0), curl and node.
 set -euo pipefail
 
-# stellar/quickstart v678-b1525.1-latest: stellar-core v29.0.0, stellar-rpc v29.0.1.
-IMAGE="stellar/quickstart@sha256:4f8dfd693deba57fddef7f0bc722e4782c2e606c8675e3adc5438cebae249295"
+# stellar/quickstart v689-b1585.1-latest: stellar-core v30.0.0, stellar-rpc v30.0.0.
+IMAGE="stellar/quickstart@sha256:e05d68bb3b2629a829310dc3434fc0ee3f801854bdfa1a7c8c362d2f1c9060f8"
 PORT="${E2E_PORT:-8000}"
 CONFIG="${E2E_CONFIG:-vitest.e2e.config.js}"
 HEALTH_TIMEOUT=180
@@ -49,9 +49,9 @@ cleanup() {
 trap cleanup EXIT
 
 echo "== Starting the local network (${CONTAINER}, port ${PORT})"
-# Protocol 29 matches testnet. The image's default local protocol is 28.
+# Protocol 30 matches testnet after its vote.
 docker run -d --name "$CONTAINER" -p "${PORT}:8000" "$IMAGE" \
-  --local --limits testnet --protocol-version 29 --enable core,rpc >/dev/null
+  --local --limits testnet --protocol-version 30 --enable core,rpc >/dev/null
 
 echo "== Waiting for RPC to report healthy"
 started="$(date +%s)"

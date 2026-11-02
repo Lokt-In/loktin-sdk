@@ -634,7 +634,7 @@ it(`runs the load steps ${STEPS.join(', ')} and recovers`, async () => {
       memoryGiB: Math.round(totalmem() / 2 ** 30),
     },
     network:
-      'private local network (stellar/quickstart, --limits testnet, protocol 29)',
+      'private local network (stellar/quickstart, --limits testnet, protocol 30)',
     steps: STEPS,
     rules: {
       minSuccessRate: MIN_SUCCESS,

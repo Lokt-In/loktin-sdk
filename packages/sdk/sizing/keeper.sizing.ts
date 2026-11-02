@@ -343,7 +343,7 @@ it(`sizes the keeper with ${String(GOALS)} goals and 1, 2 and 4 channels`, async
   const results = {
     measuredAt: new Date(runStarted).toISOString(),
     network: {
-      kind: 'private local network (stellar/quickstart, --limits testnet, protocol 29)',
+      kind: 'private local network (stellar/quickstart, --limits testnet, protocol 30)',
       secondsPerLedger,
     },
     machine: {

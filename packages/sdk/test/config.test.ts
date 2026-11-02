@@ -173,6 +173,16 @@ describe('the request time limit', () => {
     }
   });
 
+  it('accepts up to 2147483647 ms and refuses more', () => {
+    expect(
+      createLoktin({ network: 'testnet', requestTimeoutMs: 2_147_483_647 })
+        .config.requestTimeoutMs,
+    ).toBe(2_147_483_647);
+    expect(() =>
+      createLoktin({ network: 'testnet', requestTimeoutMs: 2_147_483_648 }),
+    ).toThrow(InvalidInputError);
+  });
+
   it('is set on the server the SDK builds, and not on a passed server', () => {
     const built = createLoktin({ network: 'testnet', requestTimeoutMs: 1500 });
     expect(serverOf(built).httpClient.defaults.timeout).toBe(1500);
